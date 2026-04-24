@@ -1,0 +1,27 @@
+:root {
+  --bg: #000000;
+  --text: #f5f1e8;
+  --muted: rgba(245, 241, 232, 0.72);
+  --muted2: rgba(245, 241, 232, 0.55);
+  --border: rgba(246, 211, 124, 0.18);
+  --border2: rgba(246, 211, 124, 0.12);
+  --success: #8fd6a4;
+  --danger: #ff8c82;
+  --wm-gold: #f6d37c;
+  --wm-orange: #ff7a1f;
+  --wm-green: #86efac;
+  --wm-red: #ff8c82;
+  --wm-border: rgba(246, 211, 124, 0.18);
+}
+
+* { box-sizing: border-box; }
+html, body, #root { min-height: 100%; }
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+a { color: inherit; text-decoration: none; }
+button, input, textarea, select { font: inherit; }
