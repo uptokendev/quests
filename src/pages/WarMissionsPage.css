@@ -1,0 +1,415 @@
+:root {
+  --wm-gold: #f6d37c;
+  --wm-orange: #ff7a1f;
+  --wm-green: #86efac;
+  --wm-red: #ff8c82;
+  --wm-panel: rgba(13, 10, 11, 0.78);
+  --wm-border: rgba(246, 211, 124, 0.18);
+}
+
+.war-missions-page {
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  color: var(--text);
+  background: #050505;
+}
+
+.war-missions-bg,
+.war-missions-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.war-missions-bg {
+  z-index: 0;
+  background-image: url('/hero-bg.png');
+  background-size: cover;
+  background-position: center;
+  transform: scale(1.03);
+  filter: saturate(0.9) contrast(1.05);
+}
+
+.war-missions-overlay {
+  z-index: 1;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 122, 31, 0.18), transparent 34%),
+    radial-gradient(circle at 10% 18%, rgba(246, 211, 124, 0.12), transparent 26%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.84) 48%, rgba(0, 0, 0, 0.95));
+}
+
+.war-missions-top,
+.war-missions-shell {
+  position: relative;
+  z-index: 2;
+}
+
+.war-missions-top {
+  width: min(1220px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 18px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.war-missions-brand img {
+  height: 92px;
+  width: auto;
+  display: block;
+}
+
+.war-missions-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.war-missions-nav a {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(246, 211, 124, 0.14);
+  background: rgba(0, 0, 0, 0.42);
+  color: rgba(255, 247, 235, 0.82);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.war-missions-shell {
+  width: min(1220px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 42px 0 78px;
+}
+
+.war-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.28fr) minmax(320px, 0.72fr);
+  gap: 22px;
+  align-items: stretch;
+}
+
+.war-hero-copy,
+.war-status-card,
+.war-panel,
+.war-stat {
+  border: 1px solid var(--wm-border);
+  background: linear-gradient(180deg, rgba(14, 10, 11, 0.84), rgba(6, 6, 7, 0.72));
+  backdrop-filter: blur(14px);
+  box-shadow: 0 26px 90px rgba(0, 0, 0, 0.42);
+}
+
+.war-hero-copy {
+  padding: clamp(26px, 5vw, 54px);
+  border-radius: 28px;
+}
+
+.war-kicker,
+.mission-card__eyebrow,
+.war-status-card__label,
+.war-stat__label {
+  color: rgba(246, 211, 124, 0.96);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.war-hero h1 {
+  margin: 12px 0 0;
+  font-size: clamp(46px, 8vw, 96px);
+  line-height: 0.9;
+  letter-spacing: -0.06em;
+  background: linear-gradient(90deg, #fff7eb, #f6d37c, #ff7a1f);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.war-hero p,
+.war-section-head p,
+.mission-card p,
+.war-status-card p,
+.leaderboard-empty {
+  color: rgba(255, 247, 235, 0.76);
+  line-height: 1.65;
+}
+
+.war-hero-copy > p {
+  max-width: 760px;
+  margin: 18px 0 0;
+  font-size: 18px;
+}
+
+.war-hero-actions {
+  margin-top: 26px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.war-primary,
+.war-secondary {
+  min-height: 50px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 15px;
+  padding: 0 18px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.war-primary {
+  border: 1px solid rgba(246, 211, 124, 0.38);
+  color: #120c07;
+  background: linear-gradient(90deg, #f6d37c, #ff9b2f);
+  box-shadow: 0 20px 70px rgba(255, 122, 31, 0.24);
+}
+
+.war-secondary {
+  border: 1px solid rgba(246, 211, 124, 0.22);
+  background: rgba(0, 0, 0, 0.38);
+  color: rgba(255, 247, 235, 0.9);
+}
+
+.war-status-card {
+  padding: 24px;
+  border-radius: 28px;
+}
+
+.war-status-card__title {
+  margin-top: 10px;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.war-checklist {
+  margin-top: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.war-checklist span,
+.review-list span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(246, 211, 124, 0.12);
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 247, 235, 0.82);
+}
+
+.war-stats {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.war-stat {
+  padding: 18px;
+  border-radius: 20px;
+}
+
+.war-stat__value {
+  margin-top: 8px;
+  font-size: 32px;
+  font-weight: 950;
+}
+
+.war-stat__help,
+.quest-row__text {
+  margin-top: 4px;
+  color: rgba(255, 247, 235, 0.56);
+  font-size: 13px;
+}
+
+.war-panel {
+  margin-top: 18px;
+  padding: 24px;
+  border-radius: 28px;
+}
+
+.war-panel--tight {
+  margin-top: 0;
+}
+
+.war-section-head {
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.war-section-head h2,
+.war-panel h2 {
+  margin: 8px 0 0;
+  font-size: clamp(26px, 4vw, 40px);
+  line-height: 1.05;
+}
+
+.war-section-head p {
+  max-width: 460px;
+  margin: 0;
+}
+
+.mission-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.mission-card {
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(246, 211, 124, 0.13);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.mission-card__top {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.mission-card h3 {
+  margin: 8px 0 0;
+  font-size: 24px;
+}
+
+.mission-card__top span {
+  flex-shrink: 0;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(246, 211, 124, 0.1);
+  color: rgba(246, 211, 124, 0.95);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.quest-list {
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.quest-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 13px;
+  border-radius: 16px;
+  border: 1px solid rgba(246, 211, 124, 0.1);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.quest-row__title {
+  font-weight: 900;
+}
+
+.quest-row__meta {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+  align-content: start;
+}
+
+.quest-row__meta strong {
+  color: var(--wm-gold);
+}
+
+.quest-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(246, 211, 124, 0.16);
+  color: rgba(255, 247, 235, 0.72);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.quest-status--ready { color: var(--wm-green); border-color: rgba(134, 239, 172, 0.26); }
+.quest-status--pending { color: #9fcbff; border-color: rgba(159, 203, 255, 0.26); }
+.quest-status--review { color: var(--wm-gold); border-color: rgba(246, 211, 124, 0.26); }
+.quest-status--locked { color: rgba(255, 247, 235, 0.46); }
+
+.war-two-col {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.leaderboard-empty {
+  margin-top: 16px;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px dashed rgba(246, 211, 124, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.review-list {
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 940px) {
+  .war-hero,
+  .war-two-col,
+  .mission-grid,
+  .war-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .war-missions-top,
+  .war-section-head {
+    flex-direction: column;
+  }
+
+  .war-missions-nav {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .war-missions-shell,
+  .war-missions-top {
+    width: min(100% - 24px, 1220px);
+  }
+
+  .war-missions-brand img {
+    height: 76px;
+  }
+
+  .war-hero-copy,
+  .war-status-card,
+  .war-panel {
+    border-radius: 22px;
+    padding: 18px;
+  }
+
+  .quest-row {
+    grid-template-columns: 1fr;
+  }
+
+  .quest-row__meta {
+    justify-items: start;
+  }
+}
