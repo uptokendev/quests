@@ -84,6 +84,11 @@ function normalizeHexAddress(value?: string | null): string {
   return /^0x[a-fA-F0-9]{40}$/.test(v) ? v.toLowerCase() : ''
 }
 
+function normalizeAccounts(accounts: unknown): string[] {
+  if (!Array.isArray(accounts)) return []
+  return accounts.map((account) => normalizeHexAddress(String(account))).filter(Boolean)
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
