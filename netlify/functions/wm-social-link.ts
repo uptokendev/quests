@@ -1,7 +1,7 @@
 import { json, readBody } from './_lib/http'
 import { supabaseGet, supabasePatch, supabasePost } from './_lib/supabase'
 import { readWarAuth, unauthorized } from './_lib/war-auth'
-import { createAdminNotification } from './_lib/war-engine'
+import { createAdminNotification, submitQuest } from './_lib/war-engine'
 import { buildWarProfile, getUserById } from './_lib/war-profile'
 import { enforceRateLimit } from './_lib/rate-limit'
 
@@ -60,21 +60,43 @@ export const handler = async (event: any) => {
       })
     }
 
-    await createAdminNotification({
-      type: 'social_verification_requested',
-      title: `${provider.toUpperCase()} account needs verification`,
-      message: username,
-      priority: 'normal',
-      relatedUserId: user.id,
-    })
+    const questSlug = providerQuestSlug[provider]
+    let questStatus = 'review'
+    let questAlreadyCompleted = false
+
+    try {
+      const questResult = await submitQuest({
+        user,
+        questSlug,
+        submittedValue: username,
+        payload: {
+          provider,
+          username,
+          providerUserId,
+          source: 'social_identity_link',
+          note: 'Social identity linked; bot/API verification may approve later.',
+        },
+      })
+      questStatus = questResult.status
+      questAlreadyCompleted = Boolean(questResult.alreadyCompleted)
+    } catch (questError) {
+      await createAdminNotification({
+        type: 'social_start_here_submission_failed',
+        title: `${provider.toUpperCase()} linked but Start Here quest was not submitted`,
+        message: questError instanceof Error ? questError.message : 'Unknown quest submission error.',
+        priority: 'high',
+        relatedUserId: user.id,
+      })
+    }
 
     const profile = await buildWarProfile(user)
     return json(200, {
       ok: true,
       provider,
       username,
-      questSlug: providerQuestSlug[provider],
-      status: 'review',
+      questSlug,
+      status: questStatus,
+      alreadyCompleted: questAlreadyCompleted,
       profile,
     })
   } catch (error) {
