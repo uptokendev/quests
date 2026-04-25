@@ -30,6 +30,8 @@ The quests site uses its own Netlify Functions under `quests/netlify/functions`.
 - `WM_DISCORD_GUILD_ID`
 - `WM_DISCORD_CHANNEL_IDS`
 
+Wallet connect uses the same injected-wallet flow as the MemeBattles frontend: MetaMask/Rabby, Binance Wallet, or another BSC-compatible injected EVM wallet. It does not require a WalletConnect/Reown project ID.
+
 ## Asset note
 
 The quests app expects these files in `quests/public` before production deploy:
