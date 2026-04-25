@@ -8,7 +8,6 @@ type SocialAccountRow = {
   provider_user_id: string
   username: string | null
   last_verified_at: string | null
-  created_at: string | null
 }
 
 function isXOAuthConfigured() {
@@ -41,7 +40,7 @@ export const handler = async (event: any) => {
       })
     }
 
-    const accounts = await supabaseGet<SocialAccountRow[]>(`/rest/v1/wm_social_accounts?select=provider,provider_user_id,username,last_verified_at,created_at&user_id=eq.${encodeURIComponent(user.id)}&order=created_at.desc`)
+    const accounts = await supabaseGet<SocialAccountRow[]>(`/rest/v1/wm_social_accounts?select=provider,provider_user_id,username,last_verified_at&user_id=eq.${encodeURIComponent(user.id)}&order=provider.asc`)
     const profile = await buildWarProfile(user)
 
     return json(200, {
@@ -54,7 +53,7 @@ export const handler = async (event: any) => {
         providerUserId: account.provider_user_id,
         username: account.username || account.provider_user_id,
         lastVerifiedAt: account.last_verified_at,
-        createdAt: account.created_at,
+        createdAt: null,
       })),
     })
   } catch (error) {
