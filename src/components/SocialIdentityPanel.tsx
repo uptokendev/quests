@@ -81,7 +81,7 @@ export default function SocialIdentityPanel() {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search)
-    if (params.get('social') === 'x-connected') setMessage('X account connected. Follow verification can run once the X checks are enabled.')
+    if (params.get('social') === 'x-connected') setMessage('X account connected and Start Here verification was submitted.')
     if (params.get('social_error')) setError(params.get('social_error') || 'Social connection failed.')
   }, [location.search])
 
@@ -109,8 +109,9 @@ export default function SocialIdentityPanel() {
       })
       const data = await response.json().catch(() => ({}))
       if (!response.ok || !data?.ok) throw new Error(data?.error || `${label} link failed.`)
-      setMessage(`${label} linked for manual review. Bot verification can replace this once your bot is live.`)
+      setMessage(`${label} linked and Start Here verification was submitted. Bot verification can replace manual review once your bot is live.`)
       await loadStatus()
+      window.setTimeout(() => window.location.reload(), 450)
     } catch (err) {
       setError(err instanceof Error ? err.message : `${label} link failed.`)
     } finally {
