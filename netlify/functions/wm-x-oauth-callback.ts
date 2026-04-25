@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import { buildCookie, getSecureCookieFlag, json, parseCookies } from './_lib/http'
 import { readWarAuth, unauthorized } from './_lib/war-auth'
 import { supabaseGet, supabasePatch, supabasePost } from './_lib/supabase'
-import { createAdminNotification } from './_lib/war-engine'
+import { createAdminNotification, submitQuest } from './_lib/war-engine'
 import { getUserById } from './_lib/war-profile'
 
 const X_OAUTH_COOKIE = 'mwz_x_oauth'
@@ -157,15 +157,31 @@ export const handler = async (event: any) => {
 
     const accessToken = await exchangeCode(code, oauthState.codeVerifier)
     const xUser = await fetchXUser(accessToken)
-    await upsertXAccount(user.id, String(xUser.id), String(xUser.username || xUser.id).replace(/^@+/, ''))
+    const username = String(xUser.username || xUser.id).replace(/^@+/, '')
+    await upsertXAccount(user.id, String(xUser.id), username)
 
-    await createAdminNotification({
-      type: 'social_verification_requested',
-      title: 'X account connected through OAuth',
-      message: `@${xUser.username || xUser.id}`,
-      priority: 'normal',
-      relatedUserId: user.id,
-    })
+    try {
+      await submitQuest({
+        user,
+        questSlug: 'intercept-global-comms',
+        submittedValue: username,
+        payload: {
+          provider: 'x',
+          username,
+          providerUserId: String(xUser.id),
+          source: 'x_oauth',
+          note: 'X OAuth connected; follow verification can approve this quest when configured.',
+        },
+      })
+    } catch (questError) {
+      await createAdminNotification({
+        type: 'social_start_here_submission_failed',
+        title: 'X connected but Start Here quest was not submitted',
+        message: questError instanceof Error ? questError.message : 'Unknown quest submission error.',
+        priority: 'high',
+        relatedUserId: user.id,
+      })
+    }
 
     return redirect({ social: 'x-connected' })
   } catch (error) {
