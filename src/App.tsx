@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import ExternalRedirect from './components/ExternalRedirect'
 import SocialIdentityPanel from './components/SocialIdentityPanel'
 import WarAdminPage from './pages/WarAdminPage'
 import WarMissionsPage from './pages/WarMissionsPage'
@@ -12,8 +13,8 @@ export default function App() {
         <Route path="/missions/:section" element={<WarMissionsPage />} />
         <Route path="/profile/missions" element={<WarMissionsPage />} />
         <Route path="/profile/squad" element={<WarMissionsPage />} />
-        <Route path="/recruiter/apply" element={<WarMissionsPage />} />
-        <Route path="/recruiter/portal" element={<WarMissionsPage />} />
+        <Route path="/recruiter/apply" element={<ExternalRedirect label="Command Center recruiter signup" />} />
+        <Route path="/recruiter/portal" element={<ExternalRedirect label="Command Center recruiter tools" />} />
         <Route path="/admin/missions" element={<WarAdminPage />} />
         <Route path="/admin/missions/:section" element={<WarAdminPage />} />
         <Route path="/admin/notifications" element={<WarAdminPage />} />
