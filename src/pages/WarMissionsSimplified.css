@@ -1,5 +1,5 @@
 /* War Missions layout correction
-   Right hero card keeps the social identity panel.
+   Right hero card keeps only one identity/social status surface.
    Main work area puts quests left and a compact badge cabinet right. */
 
 .war-status-card {
@@ -7,17 +7,49 @@
   flex-direction: column;
 }
 
-.war-status-card p {
-  margin-bottom: 0;
+/* Remove the duplicate top identity summary from the right card.
+   The social identity panel below is now the only identity/status UI. */
+.war-status-card > .war-status-card__label,
+.war-status-card > .war-status-card__title,
+.war-status-card > p,
+.war-status-card > .war-checklist,
+.war-status-card > .war-badge-strip {
+  display: none !important;
 }
 
 .war-status-card__social-identity-slot {
-  margin-top: 16px;
+  margin-top: 0;
 }
 
-.war-badge-strip {
-  padding-top: 14px;
-  border-top: 1px solid rgba(246, 211, 124, 0.12);
+/* Flatten the embedded panel so it feels like content inside the main right card,
+   not a second card nested inside it. */
+.war-status-card .social-identity-panel--embedded {
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.war-status-card .social-identity-panel__head {
+  margin-bottom: 14px;
+}
+
+.war-status-card .social-identity-panel__eyebrow {
+  color: rgba(246, 211, 124, 0.92);
+}
+
+.war-status-card .social-identity-panel h2 {
+  font-size: 24px;
+}
+
+.war-status-card .social-identity-panel__wallet,
+.war-status-card .social-identity-panel__item,
+.war-status-card .social-identity-panel__note,
+.war-status-card .social-identity-panel__message,
+.war-status-card .social-identity-panel__error {
+  background: rgba(255, 255, 255, 0.035);
 }
 
 /* Make the big badge cabinet stop blocking the quest board. */
