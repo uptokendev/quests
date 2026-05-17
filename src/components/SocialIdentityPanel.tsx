@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useLocation } from 'react-router-dom'
 import './SocialIdentityPanel.css'
 
@@ -48,8 +49,34 @@ export default function SocialIdentityPanel({ embedded = false }: SocialIdentity
   const [busy, setBusy] = useState<Provider | ''>('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
 
   const isAdminRoute = location.pathname.startsWith('/admin')
+
+  useEffect(() => {
+    if (embedded || isAdminRoute) return
+
+    const mountIntoStatusCard = () => {
+      const statusCard = document.querySelector('.war-status-card')
+      if (!(statusCard instanceof HTMLElement)) return false
+
+      let slot = statusCard.querySelector('.war-status-card__social-identity-slot')
+      if (!(slot instanceof HTMLElement)) {
+        slot = document.createElement('div')
+        slot.className = 'war-status-card__social-identity-slot'
+        statusCard.appendChild(slot)
+      }
+      setPortalTarget(slot)
+      return true
+    }
+
+    if (mountIntoStatusCard()) return
+
+    const raf = window.requestAnimationFrame(() => {
+      mountIntoStatusCard()
+    })
+    return () => window.cancelAnimationFrame(raf)
+  }, [embedded, isAdminRoute, location.pathname])
 
   const accountsByProvider = useMemo(() => {
     const map = new Map<Provider, SocialAccount>()
@@ -140,8 +167,8 @@ export default function SocialIdentityPanel({ embedded = false }: SocialIdentity
   const telegramAccount = accountsByProvider.get('telegram')
   const discordAccount = accountsByProvider.get('discord')
 
-  return (
-    <section className={embedded ? 'social-identity-panel social-identity-panel--embedded' : 'social-identity-panel'} aria-label="Social identity status">
+  const panel = (
+    <section className={embedded || portalTarget ? 'social-identity-panel social-identity-panel--embedded' : 'social-identity-panel'} aria-label="Social identity status">
       <div className="social-identity-panel__head">
         <div>
           <div className="social-identity-panel__eyebrow">Identity status</div>
@@ -197,4 +224,7 @@ export default function SocialIdentityPanel({ embedded = false }: SocialIdentity
       {error ? <div className="social-identity-panel__error">{error}</div> : null}
     </section>
   )
+
+  if (!embedded && portalTarget) return createPortal(panel, portalTarget)
+  return panel
 }
