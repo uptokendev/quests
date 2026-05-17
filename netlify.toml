@@ -2,14 +2,13 @@
   command = "npm run build"
   publish = "dist"
 
-[functions]
-  directory = "netlify/functions"
-  node_bundler = "esbuild"
-
+# Netlify serves the static quest frontend only.
+# Runtime API requests are proxied to the MemeWarzone Railway API.
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/:splat"
+  to = "https://memewarzonefrontend-production.up.railway.app/api/:splat"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/*"
