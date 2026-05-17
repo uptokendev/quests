@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { connectWallet } from '../lib/wallet'
 import './WarMissionsPage.css'
+import './WarMissionsSimplified.css'
 
 type QuestStatus = 'ready' | 'pending' | 'review' | 'locked' | 'verified' | 'started' | 'rejected' | 'revoked' | 'expired'
 
