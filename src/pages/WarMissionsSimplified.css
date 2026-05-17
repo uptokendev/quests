@@ -1,6 +1,6 @@
-/* Simplified War Missions hierarchy
-   Top hero/right card = passive profile summary.
-   Quest board = the only place users should take mission actions. */
+/* War Missions layout correction
+   Right hero card keeps the social identity panel.
+   Main work area puts quests left and a compact badge cabinet right. */
 
 .war-status-card {
   display: flex;
@@ -11,8 +11,8 @@
   margin-bottom: 0;
 }
 
-.war-checklist {
-  display: none;
+.war-status-card__social-identity-slot {
+  margin-top: 16px;
 }
 
 .war-badge-strip {
@@ -20,36 +20,139 @@
   border-top: 1px solid rgba(246, 211, 124, 0.12);
 }
 
-.war-status-card::after {
-  content: 'Your next actions are in the Quest Board below. Complete missions there; this card only shows your current profile status.';
+/* Make the big badge cabinet stop blocking the quest board. */
+.war-badges-panel {
+  float: right;
+  width: min(360px, 32%);
+  margin: 18px 0 18px 18px;
+  padding: 18px;
+  border-radius: 24px;
+}
+
+.war-badges-panel .war-section-head {
   display: block;
-  margin-top: 14px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(246, 211, 124, 0.14);
-  background: rgba(246, 211, 124, 0.055);
-  color: rgba(255, 247, 235, 0.72);
+  margin-bottom: 12px;
+}
+
+.war-badges-panel .war-section-head h2 {
+  margin-top: 6px;
+  font-size: 24px;
+  line-height: 1.05;
+}
+
+.war-badges-panel .war-section-head p {
+  display: none;
+}
+
+.war-badge-groups {
+  gap: 10px;
+}
+
+.war-badge-group {
+  gap: 6px;
+}
+
+.war-badge-group__head {
+  padding-top: 8px;
+  border-top: 1px solid rgba(246, 211, 124, 0.1);
+}
+
+.war-badge-group:first-child .war-badge-group__head {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.war-badge-group__head h3 {
+  font-size: 14px;
+}
+
+.war-badge-grid {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.war-badge-card {
+  min-height: auto;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px;
+  border-radius: 12px;
+}
+
+.war-badge-card:not(.war-badge-card--unlocked) {
+  display: none;
+}
+
+.war-badge-medallion {
+  width: 32px;
+  height: 32px;
+  font-size: 10px;
+}
+
+.war-badge-card__title {
   font-size: 13px;
-  line-height: 1.45;
 }
 
-.war-status-card__label::after {
-  content: ' / Summary';
-  color: rgba(255, 247, 235, 0.42);
+.war-badge-card__text {
+  display: none;
 }
 
-.mission-card:first-child {
+.war-badge-card__meta {
+  margin-top: 3px;
+  font-size: 10px;
+}
+
+/* Put the quest board next to the compact badge cabinet. */
+#missions {
+  overflow: hidden;
+}
+
+.war-badges-panel + #missions {
+  margin-top: 18px;
+}
+
+#missions .mission-grid {
+  grid-template-columns: 1fr;
+}
+
+#missions .mission-card {
+  padding: 18px;
+}
+
+#missions .mission-card:first-child {
   border-color: rgba(134, 239, 172, 0.24);
   background: linear-gradient(180deg, rgba(134, 239, 172, 0.06), rgba(0, 0, 0, 0.28));
 }
 
-.mission-card:first-child .mission-card__eyebrow::after {
+#missions .mission-card:first-child .mission-card__eyebrow::after {
   content: ' - start here';
   color: rgba(134, 239, 172, 0.92);
 }
 
+@media (min-width: 941px) {
+  #missions {
+    margin-right: calc(min(360px, 32%) + 18px);
+  }
+}
+
 @media (max-width: 940px) {
-  .war-status-card::after {
-    font-size: 12px;
+  .war-badges-panel {
+    float: none;
+    width: auto;
+    margin: 18px 0;
+  }
+
+  .war-badges-panel .war-badge-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .war-badge-card:not(.war-badge-card--unlocked) {
+    display: grid;
+  }
+}
+
+@media (max-width: 640px) {
+  .war-badges-panel .war-badge-grid {
+    grid-template-columns: 1fr;
   }
 }
