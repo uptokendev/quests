@@ -57,11 +57,11 @@ export default function SocialIdentityPanel({ embedded = false }: SocialIdentity
     if (embedded || isAdminRoute) return
 
     const mountIntoStatusCard = () => {
-      const statusCard = document.querySelector('.war-status-card')
-      if (!(statusCard instanceof HTMLElement)) return false
+      const statusCard = document.querySelector<HTMLElement>('.war-status-card')
+      if (!statusCard) return false
 
-      let slot = statusCard.querySelector('.war-status-card__social-identity-slot')
-      if (!(slot instanceof HTMLElement)) {
+      let slot = statusCard.querySelector<HTMLElement>('.war-status-card__social-identity-slot')
+      if (!slot) {
         slot = document.createElement('div')
         slot.className = 'war-status-card__social-identity-slot'
         statusCard.appendChild(slot)
