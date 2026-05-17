@@ -1,0 +1,55 @@
+/* Simplified War Missions hierarchy
+   Top hero/right card = passive profile summary.
+   Quest board = the only place users should take mission actions. */
+
+.war-status-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.war-status-card p {
+  margin-bottom: 0;
+}
+
+.war-checklist {
+  display: none;
+}
+
+.war-badge-strip {
+  padding-top: 14px;
+  border-top: 1px solid rgba(246, 211, 124, 0.12);
+}
+
+.war-status-card::after {
+  content: 'Your next actions are in the Quest Board below. Complete missions there; this card only shows your current profile status.';
+  display: block;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(246, 211, 124, 0.14);
+  background: rgba(246, 211, 124, 0.055);
+  color: rgba(255, 247, 235, 0.72);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.war-status-card__label::after {
+  content: ' / Summary';
+  color: rgba(255, 247, 235, 0.42);
+}
+
+.mission-card:first-child {
+  border-color: rgba(134, 239, 172, 0.24);
+  background: linear-gradient(180deg, rgba(134, 239, 172, 0.06), rgba(0, 0, 0, 0.28));
+}
+
+.mission-card:first-child .mission-card__eyebrow::after {
+  content: ' - start here';
+  color: rgba(134, 239, 172, 0.92);
+}
+
+@media (max-width: 940px) {
+  .war-status-card::after {
+    font-size: 12px;
+  }
+}
