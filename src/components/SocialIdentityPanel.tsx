@@ -18,10 +18,18 @@ type SocialStatusResponse = {
   authenticated?: boolean
   error?: string
   xOAuthConfigured?: boolean
+  telegramConfigured?: boolean
+  telegramInviteUrl?: string | null
   profile?: {
     walletAddress: string
   } | null
   accounts?: SocialAccount[]
+}
+
+type TelegramLinkStartResponse = {
+  ok?: boolean
+  error?: string
+  telegramUrl?: string
 }
 
 type SocialIdentityPanelProps = {
@@ -40,6 +48,10 @@ function shorten(value: string) {
 
 function normalizeHandle(value: string) {
   return value.trim().replace(/^@+/, '')
+}
+
+function hasTelegramAccount(data: SocialStatusResponse | null) {
+  return Boolean(data?.accounts?.some((account) => account.provider === 'telegram'))
 }
 
 export default function SocialIdentityPanel({ embedded = false }: SocialIdentityPanelProps) {
@@ -88,8 +100,8 @@ export default function SocialIdentityPanel({ embedded = false }: SocialIdentity
   const discordLinked = accountsByProvider.has('discord')
   const commsLinked = telegramLinked || discordLinked
 
-  const loadStatus = async () => {
-    setLoading(true)
+  const loadStatus = async (options: { silent?: boolean } = {}) => {
+    if (!options.silent) setLoading(true)
     setError('')
     try {
       const response = await fetch('/api/wm-social-status', {
@@ -99,10 +111,12 @@ export default function SocialIdentityPanel({ embedded = false }: SocialIdentity
       const data = (await response.json().catch(() => ({}))) as SocialStatusResponse
       if (!response.ok || !data?.ok) throw new Error(data.error || 'Unable to load social identity status.')
       setStatus(data)
+      return data
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load social identity status.')
+      return null
     } finally {
-      setLoading(false)
+      if (!options.silent) setLoading(false)
     }
   }
 
@@ -113,12 +127,13 @@ export default function SocialIdentityPanel({ embedded = false }: SocialIdentity
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     if (params.get('social') === 'x-connected') setMessage('X account connected and Start Here verification was submitted.')
+    if (params.get('social') === 'telegram-connected') setMessage('Telegram connected. Welcome back to the quest board.')
     if (params.get('social_error')) setError(params.get('social_error') || 'Social connection failed.')
   }, [location.search])
 
   if (isAdminRoute) return null
 
-  const linkManualProvider = async (provider: Exclude<Provider, 'x'>) => {
+  const linkManualProvider = async (provider: Exclude<Provider, 'x' | 'telegram'>) => {
     if (!status?.authenticated) {
       setError('Connect your wallet first, then link socials.')
       return
@@ -147,6 +162,63 @@ export default function SocialIdentityPanel({ embedded = false }: SocialIdentity
       setError(err instanceof Error ? err.message : `${label} link failed.`)
     } finally {
       setBusy('')
+    }
+  }
+
+  const pollTelegramConnection = () => {
+    let attempts = 0
+    const maxAttempts = 48
+
+    const interval = window.setInterval(async () => {
+      attempts += 1
+      const nextStatus = await loadStatus({ silent: true })
+
+      if (hasTelegramAccount(nextStatus)) {
+        window.clearInterval(interval)
+        setBusy('')
+        setMessage('Telegram connected. Returning you to the quest board status now.')
+        window.setTimeout(() => window.location.reload(), 450)
+        return
+      }
+
+      if (attempts >= maxAttempts) {
+        window.clearInterval(interval)
+        setBusy('')
+        setMessage('Still waiting for Telegram. Press Start in the bot, then hit Refresh here.')
+      }
+    }, 2500)
+  }
+
+  const connectTelegram = async () => {
+    if (!status?.authenticated) {
+      setError('Connect your wallet first, then link Telegram.')
+      return
+    }
+    if (status.telegramConfigured === false) {
+      setError('Telegram bot auth is not configured on this deploy yet.')
+      return
+    }
+
+    setBusy('telegram')
+    setError('')
+    setMessage('Opening Telegram. Press Start in the bot to connect your account.')
+
+    try {
+      const response = await fetch('/api/wm-telegram-link-start', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = (await response.json().catch(() => ({}))) as TelegramLinkStartResponse
+      if (!response.ok || !data?.ok || !data.telegramUrl) {
+        throw new Error(data?.error || 'Telegram connection could not start.')
+      }
+
+      window.open(data.telegramUrl, '_blank', 'noopener,noreferrer')
+      pollTelegramConnection()
+    } catch (err) {
+      setBusy('')
+      setError(err instanceof Error ? err.message : 'Telegram connection could not start.')
     }
   }
 
@@ -194,22 +266,22 @@ export default function SocialIdentityPanel({ embedded = false }: SocialIdentity
         </button>
       </div>
 
-      <div className="social-identity-panel__or">Optional comms — Telegram or Discord is enough</div>
+      <div className="social-identity-panel__or">Optional comms - Telegram or Discord is enough</div>
 
       <div className="social-identity-panel__item">
         <div>
           <strong>Telegram</strong>
-          <p>{telegramAccount ? `@${telegramAccount.username}` : 'Manual link now. Bot verification later.'}</p>
+          <p>{telegramAccount ? `@${telegramAccount.username}` : 'Connect through the MemeWarzone bot. No username typing needed.'}</p>
         </div>
-        <button type="button" onClick={() => void linkManualProvider('telegram')} disabled={busy !== '' || loading || telegramLinked}>
-          {telegramLinked ? 'Linked' : 'Link'}
+        <button type="button" onClick={() => void connectTelegram()} disabled={busy !== '' || loading || telegramLinked}>
+          {telegramLinked ? 'Connected' : busy === 'telegram' ? 'Waiting...' : 'Connect Telegram'}
         </button>
       </div>
 
       <div className="social-identity-panel__item">
         <div>
           <strong>Discord</strong>
-          <p>{discordAccount ? discordAccount.username : 'Manual link now. Bot verification later.'}</p>
+          <p>{discordAccount ? discordAccount.username : 'Manual Discord link remains available for now.'}</p>
         </div>
         <button type="button" onClick={() => void linkManualProvider('discord')} disabled={busy !== '' || loading || discordLinked}>
           {discordLinked ? 'Linked' : 'Link'}
