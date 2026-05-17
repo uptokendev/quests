@@ -23,6 +23,10 @@ type SocialStatusResponse = {
   accounts?: SocialAccount[]
 }
 
+type SocialIdentityPanelProps = {
+  embedded?: boolean
+}
+
 const providerLabels: Record<Provider, string> = {
   x: 'X',
   telegram: 'Telegram',
@@ -37,7 +41,7 @@ function normalizeHandle(value: string) {
   return value.trim().replace(/^@+/, '')
 }
 
-export default function SocialIdentityPanel() {
+export default function SocialIdentityPanel({ embedded = false }: SocialIdentityPanelProps) {
   const location = useLocation()
   const [status, setStatus] = useState<SocialStatusResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -137,7 +141,7 @@ export default function SocialIdentityPanel() {
   const discordAccount = accountsByProvider.get('discord')
 
   return (
-    <aside className="social-identity-panel" aria-label="Social identity status">
+    <section className={embedded ? 'social-identity-panel social-identity-panel--embedded' : 'social-identity-panel'} aria-label="Social identity status">
       <div className="social-identity-panel__head">
         <div>
           <div className="social-identity-panel__eyebrow">Identity status</div>
@@ -191,6 +195,6 @@ export default function SocialIdentityPanel() {
 
       {message ? <div className="social-identity-panel__message">{message}</div> : null}
       {error ? <div className="social-identity-panel__error">{error}</div> : null}
-    </aside>
+    </section>
   )
 }
