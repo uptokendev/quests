@@ -20,6 +20,8 @@ type SocialStatusResponse = {
   xOAuthConfigured?: boolean
   telegramConfigured?: boolean
   telegramInviteUrl?: string | null
+  discordConfigured?: boolean
+  discordInviteUrl?: string | null
   profile?: {
     walletAddress: string
   } | null
@@ -32,22 +34,18 @@ type TelegramLinkStartResponse = {
   telegramUrl?: string
 }
 
+type DiscordOAuthStartResponse = {
+  ok?: boolean
+  error?: string
+  authorizeUrl?: string
+}
+
 type SocialIdentityPanelProps = {
   embedded?: boolean
 }
 
-const providerLabels: Record<Provider, string> = {
-  x: 'X',
-  telegram: 'Telegram',
-  discord: 'Discord',
-}
-
 function shorten(value: string) {
   return value ? `${value.slice(0, 6)}...${value.slice(-4)}` : ''
-}
-
-function normalizeHandle(value: string) {
-  return value.trim().replace(/^@+/, '')
 }
 
 function hasTelegramAccount(data: SocialStatusResponse | null) {
@@ -128,42 +126,11 @@ export default function SocialIdentityPanel({ embedded = false }: SocialIdentity
     const params = new URLSearchParams(location.search)
     if (params.get('social') === 'x-connected') setMessage('X account connected and Start Here verification was submitted.')
     if (params.get('social') === 'telegram-connected') setMessage('Telegram connected. Welcome back to the quest board.')
+    if (params.get('social') === 'discord-connected') setMessage('Discord connected. Welcome back to the quest board.')
     if (params.get('social_error')) setError(params.get('social_error') || 'Social connection failed.')
   }, [location.search])
 
   if (isAdminRoute) return null
-
-  const linkManualProvider = async (provider: Exclude<Provider, 'x' | 'telegram'>) => {
-    if (!status?.authenticated) {
-      setError('Connect your wallet first, then link socials.')
-      return
-    }
-
-    const label = providerLabels[provider]
-    const username = normalizeHandle(window.prompt(`Enter your ${label} username or user ID:`) || '')
-    if (!username) return
-
-    setBusy(provider)
-    setError('')
-    setMessage('')
-    try {
-      const response = await fetch('/api/wm-social-link', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, username }),
-      })
-      const data = await response.json().catch(() => ({}))
-      if (!response.ok || !data?.ok) throw new Error(data?.error || `${label} link failed.`)
-      setMessage(`${label} linked and Start Here verification was submitted. Bot verification can replace manual review once your bot is live.`)
-      await loadStatus()
-      window.setTimeout(() => window.location.reload(), 450)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : `${label} link failed.`)
-    } finally {
-      setBusy('')
-    }
-  }
 
   const pollTelegramConnection = () => {
     let attempts = 0
@@ -219,6 +186,38 @@ export default function SocialIdentityPanel({ embedded = false }: SocialIdentity
     } catch (err) {
       setBusy('')
       setError(err instanceof Error ? err.message : 'Telegram connection could not start.')
+    }
+  }
+
+  const connectDiscord = async () => {
+    if (!status?.authenticated) {
+      setError('Connect your wallet first, then link Discord.')
+      return
+    }
+    if (status.discordConfigured === false) {
+      setError('Discord OAuth is not configured on this deploy yet.')
+      return
+    }
+
+    setBusy('discord')
+    setError('')
+    setMessage('Opening Discord authorization. Approve the connection to return to the quest board.')
+
+    try {
+      const response = await fetch('/api/wm-discord-oauth-start', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = (await response.json().catch(() => ({}))) as DiscordOAuthStartResponse
+      if (!response.ok || !data?.ok || !data.authorizeUrl) {
+        throw new Error(data?.error || 'Discord connection could not start.')
+      }
+
+      window.location.href = data.authorizeUrl
+    } catch (err) {
+      setBusy('')
+      setError(err instanceof Error ? err.message : 'Discord connection could not start.')
     }
   }
 
@@ -281,10 +280,10 @@ export default function SocialIdentityPanel({ embedded = false }: SocialIdentity
       <div className="social-identity-panel__item">
         <div>
           <strong>Discord</strong>
-          <p>{discordAccount ? discordAccount.username : 'Manual Discord link remains available for now.'}</p>
+          <p>{discordAccount ? discordAccount.username : 'Connect through Discord OAuth. No username typing needed.'}</p>
         </div>
-        <button type="button" onClick={() => void linkManualProvider('discord')} disabled={busy !== '' || loading || discordLinked}>
-          {discordLinked ? 'Linked' : 'Link'}
+        <button type="button" onClick={() => void connectDiscord()} disabled={busy !== '' || loading || discordLinked}>
+          {discordLinked ? 'Connected' : busy === 'discord' ? 'Opening...' : 'Connect Discord'}
         </button>
       </div>
 
