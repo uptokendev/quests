@@ -2,27 +2,8 @@
   command = "npm run build"
   publish = "dist"
 
-# Telegram connector is owned by the quests app so bot auth can return directly to quests.memewar.zone.
-[[redirects]]
-  from = "/api/wm-telegram-link-start"
-  to = "/.netlify/functions/wm-telegram-link-start"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/wm-telegram-webhook"
-  to = "/.netlify/functions/wm-telegram-webhook"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/wm-telegram-member-check"
-  to = "/.netlify/functions/wm-telegram-member-check"
-  status = 200
-  force = true
-
 # Netlify serves the static quest frontend only.
-# Existing runtime API requests remain proxied to the MemeWarzone Railway API.
+# Runtime API requests are proxied to the MemeWarzone Railway API.
 [[redirects]]
   from = "/api/*"
   to = "https://memewarzonefrontend-production.up.railway.app/api/:splat"
