@@ -1,35 +1,55 @@
-import { useEffect, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { connectWallet } from '../lib/wallet'
 import './WarMissionsPage.css'
 
-type AdminNotification = {
-  id: string
-  type: string
-  title: string
-  message: string | null
-  priority: 'low' | 'normal' | 'high' | 'urgent'
-  status: string
-  related_user_id: string | null
-  related_completion_id: string | null
-  related_application_id: string | null
-  created_at: string
+type AdminSession = {
+  username: string
+  role: string
 }
 
-type SocialCheck = {
-  completionId: string
+type AdminSummary = {
+  usersTotal: number
+  adminsTotal: number
+  bannedTotal: number
+  completionsTotal: number
+  completionsVerified: number
+  completionsOpen: number
+  completionsRejected: number
+  socialAccountsTotal: number
+  telegramAccountsTotal: number
+  discordAccountsTotal: number
+  xAccountsTotal: number
+  notificationsOpen: number
+  activeXpTotal: number
+}
+
+type AdminUser = {
+  id: string
+  walletAddress: string
+  displayName: string | null
+  role: string
+  isBanned: boolean
+  riskScore: number
+  completionCount: number
+  verifiedCount: number
+  socialCount: number
+  activeXp: number
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+type AdminCompletion = {
+  id: string
   status: string
   submittedValue: string | null
   verificationPayload: Record<string, unknown>
   rejectionReason: string | null
-  verifiedAt?: string | null
+  verifiedAt: string | null
+  createdAt: string | null
   updatedAt: string | null
-  createdAt?: string | null
   user: {
-    id?: string
     walletAddress: string
     displayName: string | null
-    role?: string
     riskScore: number
   }
   quest: {
@@ -37,17 +57,52 @@ type SocialCheck = {
     title: string
     verificationType: string
     periodType: string | null
-    periodStart?: string | null
-    periodEnd?: string | null
   }
   latestLog: {
     provider: string | null
-    verificationType?: string | null
     status: string | null
     message: string | null
-    metadata?: Record<string, unknown>
     createdAt: string
   } | null
+}
+
+type SocialAccount = {
+  id: string
+  userId: string
+  provider: string
+  providerUserId: string
+  username: string
+  lastVerifiedAt: string | null
+  createdAt: string | null
+  walletAddress: string
+  displayName: string | null
+}
+
+type AdminNotification = {
+  id: string
+  type: string
+  title: string
+  message: string | null
+  priority: string
+  status: string
+  related_user_id: string | null
+  related_completion_id: string | null
+  related_application_id: string | null
+  created_at: string
+  updated_at?: string | null
+}
+
+type VerificationLog = {
+  id: string
+  userId: string | null
+  completionId: string | null
+  provider: string | null
+  verificationType: string | null
+  status: string | null
+  message: string | null
+  metadata: Record<string, unknown>
+  createdAt: string | null
+  walletAddress: string | null
 }
 
 type PrizePool = {
@@ -57,6 +112,7 @@ type PrizePool = {
   reward_amount: number | null
   status: string
   created_at: string
+  updated_at?: string | null
 }
 
 type PrizeWinner = {
@@ -66,17 +122,53 @@ type PrizeWinner = {
   rank: number | null
   reward_amount: number | null
   status: string
+  created_at?: string | null
 }
 
-function shortId(value: string | null) {
+type AdminConsoleData = {
+  ok?: boolean
+  error?: string
+  admin?: AdminSession
+  summary?: AdminSummary
+  users?: AdminUser[]
+  completions?: AdminCompletion[]
+  socialAccounts?: SocialAccount[]
+  notifications?: AdminNotification[]
+  verificationLogs?: VerificationLog[]
+  prizePools?: PrizePool[]
+  prizeWinners?: PrizeWinner[]
+}
+
+type TabKey = 'overview' | 'reviews' | 'users' | 'social' | 'logs' | 'notifications' | 'prizes'
+
+const tabs: Array<{ key: TabKey; label: string }> = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'reviews', label: 'Reviews' },
+  { key: 'users', label: 'Users' },
+  { key: 'social', label: 'Social accounts' },
+  { key: 'logs', label: 'Verification logs' },
+  { key: 'notifications', label: 'Notifications' },
+  { key: 'prizes', label: 'Prizes' },
+]
+
+function shortId(value: string | null | undefined) {
   if (!value) return 'none'
   return `${value.slice(0, 8)}...${value.slice(-4)}`
 }
 
-function shortText(value: unknown, fallback = 'none') {
+function shortText(value: unknown, fallback = 'none', length = 120) {
   const text = String(value || '').trim()
   if (!text) return fallback
-  return text.length > 96 ? `${text.slice(0, 96)}...` : text
+  return text.length > length ? `${text.slice(0, length)}...` : text
+}
+
+function dateText(value: string | null | undefined) {
+  if (!value) return 'none'
+  try {
+    return new Date(value).toLocaleString()
+  } catch {
+    return value
+  }
 }
 
 function prettyJson(value: unknown) {
@@ -99,35 +191,49 @@ async function apiPost(path: string, body: Record<string, unknown>) {
   return data
 }
 
+function StatusPill({ value }: { value: string }) {
+  return <span className={`quest-status quest-status--${String(value || '').toLowerCase()}`}>{value || 'unknown'}</span>
+}
+
 export default function WarAdminPage() {
-  const [notifications, setNotifications] = useState<AdminNotification[]>([])
-  const [socialChecks, setSocialChecks] = useState<SocialCheck[]>([])
-  const [pools, setPools] = useState<PrizePool[]>([])
-  const [winners, setWinners] = useState<PrizeWinner[]>([])
-  const [expandedCheckId, setExpandedCheckId] = useState('')
+  const [admin, setAdmin] = useState<AdminSession | null>(null)
+  const [data, setData] = useState<AdminConsoleData | null>(null)
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [activeTab, setActiveTab] = useState<TabKey>('overview')
+  const [expandedId, setExpandedId] = useState('')
+  const [query, setQuery] = useState('')
   const [busy, setBusy] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
-  const loadAdmin = async () => {
+  const loadSession = async () => {
+    try {
+      const response = await fetch('/api/wm-admin-auth', { credentials: 'same-origin', cache: 'no-store' })
+      const session = await response.json().catch(() => ({}))
+      if (response.ok && session?.authenticated && session.admin) {
+        setAdmin(session.admin)
+        await loadData()
+      } else {
+        setAdmin(null)
+      }
+    } catch {
+      setAdmin(null)
+    }
+  }
+
+  const loadData = async () => {
     setBusy('load')
     setError('')
     try {
-      const [notificationResponse, socialChecksResponse, prizeResponse] = await Promise.all([
-        fetch('/api/wm-admin-notifications-list', { credentials: 'same-origin', cache: 'no-store' }),
-        fetch('/api/wm-admin-social-checks-list?status=reviewable&limit=50', { credentials: 'same-origin', cache: 'no-store' }),
-        fetch('/api/wm-admin-prizes', { credentials: 'same-origin', cache: 'no-store' }),
-      ])
-      const notificationData = await notificationResponse.json().catch(() => ({}))
-      const socialChecksData = await socialChecksResponse.json().catch(() => ({}))
-      const prizeData = await prizeResponse.json().catch(() => ({}))
-      if (!notificationResponse.ok || !notificationData?.ok) throw new Error(notificationData?.error || 'Admin notifications unavailable.')
-      if (!socialChecksResponse.ok || !socialChecksData?.ok) throw new Error(socialChecksData?.error || 'Social checks unavailable.')
-      if (!prizeResponse.ok || !prizeData?.ok) throw new Error(prizeData?.error || 'Prize data unavailable.')
-      setNotifications(notificationData.rows || [])
-      setSocialChecks(socialChecksData.rows || [])
-      setPools(prizeData.pools || [])
-      setWinners(prizeData.winners || [])
+      const response = await fetch('/api/wm-admin-console-data?limit=100', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      })
+      const payload = (await response.json().catch(() => ({}))) as AdminConsoleData
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Admin data unavailable.')
+      setData(payload)
+      if (payload.admin) setAdmin(payload.admin)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Admin data unavailable.')
     } finally {
@@ -136,30 +242,41 @@ export default function WarAdminPage() {
   }
 
   useEffect(() => {
-    void loadAdmin()
+    void loadSession()
   }, [])
 
-  const signIn = async () => {
-    setBusy('auth')
+  const login = async (event: FormEvent) => {
+    event.preventDefault()
+    setBusy('login')
     setError('')
+    setMessage('')
     try {
-      const { signer, address } = await connectWallet()
-      const nonceResponse = await fetch(`/api/wm-auth-nonce?address=${encodeURIComponent(address)}`, { credentials: 'same-origin' })
-      const nonceData = await nonceResponse.json().catch(() => ({}))
-      if (!nonceResponse.ok || !nonceData?.message) throw new Error(nonceData?.error || 'Failed to request wallet challenge.')
-      const signature = await signer.signMessage(nonceData.message)
-      const verifyResponse = await fetch('/api/wm-auth-verify', {
+      const response = await fetch('/api/wm-admin-auth', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, signature }),
+        body: JSON.stringify({ username, password }),
       })
-      const verifyData = await verifyResponse.json().catch(() => ({}))
-      if (!verifyResponse.ok || !verifyData?.ok) throw new Error(verifyData?.error || 'Wallet sign-in failed.')
-      setMessage('Admin wallet connected.')
-      await loadAdmin()
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Admin login failed.')
+      setAdmin(payload.admin)
+      setPassword('')
+      setMessage('Admin logged in.')
+      await loadData()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Wallet sign-in failed.')
+      setError(err instanceof Error ? err.message : 'Admin login failed.')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const logout = async () => {
+    setBusy('logout')
+    try {
+      await fetch('/api/wm-admin-auth', { method: 'DELETE', credentials: 'same-origin' })
+      setAdmin(null)
+      setData(null)
+      setMessage('Logged out.')
     } finally {
       setBusy('')
     }
@@ -172,13 +289,28 @@ export default function WarAdminPage() {
     try {
       await action()
       setMessage(`${label} complete.`)
-      await loadAdmin()
+      await loadData()
     } catch (err) {
       setError(err instanceof Error ? err.message : `${label} failed.`)
     } finally {
       setBusy('')
     }
   }
+
+  const reviewCompletion = (completionId: string, status: 'verified' | 'rejected') => runAction(status === 'verified' ? 'Approve completion' : 'Reject completion', async () => {
+    await apiPost('/api/wm-admin-review-completion', {
+      completionId,
+      status,
+      reason: status === 'verified' ? 'Admin approved from review dashboard' : 'Admin rejected from review dashboard',
+    })
+  })
+
+  const recheckSocial = (completionId: string) => runAction('Recheck completion', async () => {
+    await apiPost('/api/wm-admin-social-recheck', {
+      completionId,
+      reason: 'Admin recheck from review dashboard',
+    })
+  })
 
   const resolveNotification = (id: string) => runAction('Resolve notification', async () => {
     const response = await fetch('/api/wm-admin-notifications-list', {
@@ -187,281 +319,274 @@ export default function WarAdminPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, status: 'resolved' }),
     })
-    const data = await response.json().catch(() => ({}))
-    if (!response.ok || !data?.ok) throw new Error(data?.error || 'Notification update failed.')
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Notification update failed.')
   })
 
-  const reviewCompletionPrompt = () => runAction('Review completion', async () => {
-    const completionId = window.prompt('Completion ID') || ''
-    if (!completionId) return
-    const status = window.prompt('Status', 'verified') || 'verified'
-    const reason = window.prompt('Reason', 'Admin review') || 'Admin review'
-    await apiPost('/api/wm-admin-review-completion', { completionId, status, reason })
-  })
+  const normalizedQuery = query.trim().toLowerCase()
+  const completions = useMemo(() => {
+    const rows = data?.completions || []
+    if (!normalizedQuery) return rows
+    return rows.filter((row) => [
+      row.id,
+      row.status,
+      row.user.walletAddress,
+      row.user.displayName,
+      row.quest.title,
+      row.quest.slug,
+      row.quest.verificationType,
+      row.submittedValue,
+      row.latestLog?.message,
+    ].some((value) => String(value || '').toLowerCase().includes(normalizedQuery)))
+  }, [data?.completions, normalizedQuery])
 
-  const reviewCompletionDirect = (completionId: string, status: 'verified' | 'rejected') => runAction(status === 'verified' ? 'Verify completion' : 'Reject completion', async () => {
-    await apiPost('/api/wm-admin-review-completion', {
-      completionId,
-      status,
-      reason: status === 'verified' ? 'Admin verified from expanded review data' : 'Admin rejected from expanded review data',
-    })
-  })
+  const users = useMemo(() => {
+    const rows = data?.users || []
+    if (!normalizedQuery) return rows
+    return rows.filter((row) => [row.walletAddress, row.displayName, row.role].some((value) => String(value || '').toLowerCase().includes(normalizedQuery)))
+  }, [data?.users, normalizedQuery])
 
-  const recheckSocialPrompt = () => runAction('Social recheck', async () => {
-    const completionId = window.prompt('Completion ID') || ''
-    if (!completionId) return
-    await apiPost('/api/wm-admin-social-recheck', { completionId, reason: 'Admin social recheck' })
-  })
+  const socialAccounts = useMemo(() => {
+    const rows = data?.socialAccounts || []
+    if (!normalizedQuery) return rows
+    return rows.filter((row) => [row.provider, row.username, row.walletAddress, row.displayName].some((value) => String(value || '').toLowerCase().includes(normalizedQuery)))
+  }, [data?.socialAccounts, normalizedQuery])
 
-  const recheckSocialDirect = (completionId: string) => runAction('Social recheck', async () => {
-    await apiPost('/api/wm-admin-social-recheck', {
-      completionId,
-      reason: 'Admin social recheck from expanded review data',
-    })
-  })
+  const summary = data?.summary
 
-  const snapshotLeaderboard = () => runAction('Snapshot leaderboard', async () => {
-    const periodType = window.prompt('Period', 'weekly') || 'weekly'
-    await apiPost('/api/wm-admin-leaderboard-snapshot', { periodType })
-  })
+  const renderLogin = () => (
+    <main className="war-missions-shell">
+      <section className="war-panel war-admin-login">
+        <div>
+          <div className="war-kicker">Admin access</div>
+          <h1>War Missions Admin</h1>
+          <p>Login with admin username and password. Wallet login is no longer required for the admin console.</p>
+        </div>
+        <form className="war-admin-login__form" onSubmit={login}>
+          <label>
+            <span>Username</span>
+            <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" />
+          </label>
+          <label>
+            <span>Password</span>
+            <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="current-password" />
+          </label>
+          <button className="war-primary" type="submit" disabled={busy === 'login'}>{busy === 'login' ? 'Logging in...' : 'Login'}</button>
+        </form>
+        {error ? <div className="war-alert">{error}</div> : null}
+        {message ? <div className="war-success">{message}</div> : null}
+      </section>
+    </main>
+  )
 
-  const createPrizePool = () => runAction('Create prize pool', async () => {
-    const periodType = window.prompt('Period', 'weekly') || 'weekly'
-    const rewardAsset = window.prompt('Reward asset', 'XP bonus') || 'XP bonus'
-    const rewardAmount = Number(window.prompt('Reward amount', '0') || 0)
-    await apiPost('/api/wm-admin-prizes', { action: 'create_pool', periodType, rewardAsset, rewardAmount, status: 'active' })
-  })
+  const renderStats = () => (
+    <section className="war-stats war-admin-stats">
+      <div className="war-stat"><div className="war-stat__label">Users</div><div className="war-stat__value">{summary?.usersTotal || 0}</div><div className="war-stat__help">{summary?.bannedTotal || 0} banned / {summary?.adminsTotal || 0} admins</div></div>
+      <div className="war-stat"><div className="war-stat__label">Completions</div><div className="war-stat__value">{summary?.completionsTotal || 0}</div><div className="war-stat__help">{summary?.completionsOpen || 0} open / {summary?.completionsVerified || 0} verified</div></div>
+      <div className="war-stat"><div className="war-stat__label">Social links</div><div className="war-stat__value">{summary?.socialAccountsTotal || 0}</div><div className="war-stat__help">TG {summary?.telegramAccountsTotal || 0} / DC {summary?.discordAccountsTotal || 0} / X {summary?.xAccountsTotal || 0}</div></div>
+      <div className="war-stat"><div className="war-stat__label">Active XP</div><div className="war-stat__value">{summary?.activeXpTotal || 0}</div><div className="war-stat__help">{summary?.notificationsOpen || 0} open notifications</div></div>
+    </section>
+  )
 
-  const drawWinners = () => runAction('Draw winners', async () => {
-    const prizePoolId = window.prompt('Prize pool ID', pools[0]?.id || '') || ''
-    if (!prizePoolId) return
-    const winnerCount = Number(window.prompt('Winners', '3') || 3)
-    const rewardAmount = Number(window.prompt('Reward amount per winner', '0') || 0)
-    const periodType = window.prompt('Period', 'weekly') || 'weekly'
-    await apiPost('/api/wm-admin-prizes', { action: 'draw_winners', prizePoolId, winnerCount, rewardAmount, periodType })
-  })
-
-  const badgeAction = () => runAction('Badge action', async () => {
-    const walletAddress = window.prompt('Wallet address') || ''
-    const badgeSlug = window.prompt('Badge slug') || ''
-    const action = window.prompt('Action', 'award') || 'award'
-    const reason = window.prompt('Reason', 'Manual admin action') || 'Manual admin action'
-    if (!walletAddress || !badgeSlug) return
-    await apiPost('/api/wm-admin-badge-award', { walletAddress, badgeSlug, action, reason })
-  })
-
-  const userAction = () => runAction('User action', async () => {
-    const walletAddress = window.prompt('Wallet address') || ''
-    const action = window.prompt('Action', 'restrict') || 'restrict'
-    const reason = window.prompt('Reason', 'Admin risk action') || 'Admin risk action'
-    if (!walletAddress) return
-    await apiPost('/api/wm-admin-user-action', { walletAddress, action, reason })
-  })
-
-  const recruiterReview = () => runAction('Recruiter review', async () => {
-    const applicationId = window.prompt('Application ID') || ''
-    const status = window.prompt('Status', 'accepted') || 'accepted'
-    const reason = window.prompt('Reason', 'Admin recruiter review') || 'Admin recruiter review'
-    if (!applicationId) return
-    await apiPost('/api/wm-admin-recruiter-review', { applicationId, status, reason })
-  })
-
-  const questUpsert = () => runAction('Quest upsert', async () => {
-    const slug = window.prompt('Quest slug') || ''
-    if (!slug) return
-    const title = window.prompt('Title') || slug
-    const categorySlug = window.prompt('Category slug', 'start-here') || 'start-here'
-    const description = window.prompt('Description') || ''
-    const xpReward = Number(window.prompt('XP reward', '100') || 100)
-    const verificationType = window.prompt('Verification type', 'manual_review') || 'manual_review'
-    const active = (window.prompt('Active?', 'yes') || 'yes').toLowerCase() !== 'no'
-    await apiPost('/api/wm-admin-quest-upsert', { slug, title, categorySlug, description, xpReward, verificationType, active })
-  })
-
-  const categoryUpsert = () => runAction('Category upsert', async () => {
-    const slug = window.prompt('Category slug') || ''
-    if (!slug) return
-    const title = window.prompt('Title') || slug
-    const description = window.prompt('Description') || ''
-    const displayOrder = Number(window.prompt('Display order', '50') || 50)
-    const active = (window.prompt('Active?', 'yes') || 'yes').toLowerCase() !== 'no'
-    await apiPost('/api/wm-admin-quest-upsert', { entity: 'category', slug, title, description, displayOrder, active })
-  })
-
-  const renderCheckDetails = (check: SocialCheck) => (
+  const renderCompletionDetails = (row: AdminCompletion) => (
     <div className="war-admin-details">
       <div className="war-admin-details__head">
         <div>
-          <div className="war-kicker">Approval data</div>
-          <h3>{check.quest.title}</h3>
+          <div className="war-kicker">Review data</div>
+          <h3>{row.quest.title}</h3>
         </div>
         <div className="war-admin-row__actions">
-          <button type="button" onClick={() => void reviewCompletionDirect(check.completionId, 'verified')}>Approve</button>
-          <button type="button" onClick={() => void reviewCompletionDirect(check.completionId, 'rejected')}>Reject</button>
-          <button type="button" onClick={() => void recheckSocialDirect(check.completionId)}>Recheck source</button>
+          <button type="button" onClick={() => void reviewCompletion(row.id, 'verified')}>Approve</button>
+          <button type="button" onClick={() => void reviewCompletion(row.id, 'rejected')}>Reject</button>
+          <button type="button" onClick={() => void recheckSocial(row.id)}>Recheck</button>
         </div>
       </div>
-
       <div className="war-admin-details__grid">
-        <div><strong>Completion ID</strong><span>{check.completionId}</span></div>
-        <div><strong>Status</strong><span>{check.status}</span></div>
-        <div><strong>Provider</strong><span>{check.latestLog?.provider || String(check.verificationPayload?.provider || 'unknown')}</span></div>
-        <div><strong>Submitted value</strong><span>{shortText(check.submittedValue, 'empty')}</span></div>
-        <div><strong>Wallet</strong><span>{check.user.walletAddress}</span></div>
-        <div><strong>Display name</strong><span>{check.user.displayName || 'none'}</span></div>
-        <div><strong>Risk score</strong><span>{check.user.riskScore}</span></div>
-        <div><strong>Quest slug</strong><span>{check.quest.slug}</span></div>
-        <div><strong>Verification type</strong><span>{check.quest.verificationType}</span></div>
-        <div><strong>Period</strong><span>{check.quest.periodType || 'none'}</span></div>
-        <div><strong>Created</strong><span>{check.createdAt || 'unknown'}</span></div>
-        <div><strong>Updated</strong><span>{check.updatedAt || 'unknown'}</span></div>
-        <div><strong>Verified</strong><span>{check.verifiedAt || 'not verified'}</span></div>
-        <div><strong>Rejection reason</strong><span>{check.rejectionReason || 'none'}</span></div>
-        <div><strong>Latest log</strong><span>{check.latestLog?.message || 'none'}</span></div>
-        <div><strong>Latest log status</strong><span>{check.latestLog?.status || 'none'}</span></div>
+        <div><strong>Completion ID</strong><span>{row.id}</span></div>
+        <div><strong>Status</strong><span>{row.status}</span></div>
+        <div><strong>Quest</strong><span>{row.quest.slug}</span></div>
+        <div><strong>Verification</strong><span>{row.quest.verificationType}</span></div>
+        <div><strong>Wallet</strong><span>{row.user.walletAddress}</span></div>
+        <div><strong>Display name</strong><span>{row.user.displayName || 'none'}</span></div>
+        <div><strong>Risk score</strong><span>{row.user.riskScore}</span></div>
+        <div><strong>Submitted</strong><span>{shortText(row.submittedValue, 'empty', 240)}</span></div>
+        <div><strong>Created</strong><span>{dateText(row.createdAt)}</span></div>
+        <div><strong>Updated</strong><span>{dateText(row.updatedAt)}</span></div>
+        <div><strong>Verified</strong><span>{dateText(row.verifiedAt)}</span></div>
+        <div><strong>Latest log</strong><span>{row.latestLog?.message || 'none'}</span></div>
       </div>
-
       <div className="war-admin-details__json-grid">
-        <div>
-          <strong>Verification payload</strong>
-          <pre>{prettyJson(check.verificationPayload)}</pre>
-        </div>
-        <div>
-          <strong>Latest verification log</strong>
-          <pre>{prettyJson(check.latestLog)}</pre>
-        </div>
+        <div><strong>Verification payload</strong><pre>{prettyJson(row.verificationPayload)}</pre></div>
+        <div><strong>Latest log</strong><pre>{prettyJson(row.latestLog)}</pre></div>
       </div>
     </div>
   )
+
+  const renderReviews = () => (
+    <section className="war-panel">
+      <div className="war-section-head">
+        <div><div className="war-kicker">Review center</div><h2>{completions.length} completions</h2></div>
+        <p>Open a row to inspect submitted data, user risk, verification payloads, and latest logs before approving or rejecting.</p>
+      </div>
+      <div className="war-admin-list">
+        {completions.map((row) => {
+          const isExpanded = expandedId === row.id
+          return (
+            <article className={isExpanded ? 'war-admin-row war-admin-row--expanded' : 'war-admin-row'} key={row.id}>
+              <div>
+                <strong>{row.quest.title}</strong>
+                <span>{row.quest.verificationType} | wallet {shortId(row.user.walletAddress)} | risk {row.user.riskScore}</span>
+                <span>submitted: {shortText(row.submittedValue)}</span>
+                {row.latestLog?.message ? <span>log: {shortText(row.latestLog.message)}</span> : null}
+              </div>
+              <div className="war-admin-row__actions">
+                <StatusPill value={row.status} />
+                <button type="button" onClick={() => setExpandedId(isExpanded ? '' : row.id)}>{isExpanded ? 'Close data' : 'Open data'}</button>
+              </div>
+              {isExpanded ? renderCompletionDetails(row) : null}
+            </article>
+          )
+        })}
+      </div>
+    </section>
+  )
+
+  const renderUsers = () => (
+    <section className="war-panel">
+      <div className="war-section-head"><div><div className="war-kicker">Users</div><h2>{users.length} quest users</h2></div></div>
+      <div className="war-admin-table">
+        <div className="war-admin-table__head"><span>Wallet</span><span>Name</span><span>Role</span><span>Risk</span><span>Quests</span><span>XP</span></div>
+        {users.map((user) => (
+          <div className="war-admin-table__row" key={user.id}>
+            <span>{shortId(user.walletAddress)}</span>
+            <span>{user.displayName || 'none'}</span>
+            <span>{user.role}{user.isBanned ? ' / banned' : ''}</span>
+            <span>{user.riskScore}</span>
+            <span>{user.verifiedCount}/{user.completionCount}</span>
+            <span>{user.activeXp}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+
+  const renderSocial = () => (
+    <section className="war-panel">
+      <div className="war-section-head"><div><div className="war-kicker">Social identities</div><h2>{socialAccounts.length} linked accounts</h2></div></div>
+      <div className="war-admin-list">
+        {socialAccounts.map((account) => (
+          <article className="war-admin-row" key={account.id}>
+            <div>
+              <strong>{account.provider}: {account.username}</strong>
+              <span>wallet {account.walletAddress}</span>
+              <span>provider user ID {account.providerUserId}</span>
+              <span>last verified {dateText(account.lastVerifiedAt)}</span>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+
+  const renderLogs = () => (
+    <section className="war-panel">
+      <div className="war-section-head"><div><div className="war-kicker">Audit trail</div><h2>{data?.verificationLogs?.length || 0} latest logs</h2></div></div>
+      <div className="war-admin-list">
+        {(data?.verificationLogs || []).map((log) => (
+          <article className="war-admin-row" key={log.id}>
+            <div>
+              <strong>{log.provider || 'admin'} | {log.status || 'unknown'} | {log.verificationType || 'verification'}</strong>
+              <span>{log.message || 'No message'}</span>
+              <span>wallet {shortId(log.walletAddress)} | completion {shortId(log.completionId)}</span>
+              <span>{dateText(log.createdAt)}</span>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+
+  const renderNotifications = () => (
+    <section className="war-panel">
+      <div className="war-section-head"><div><div className="war-kicker">Notifications</div><h2>{data?.notifications?.length || 0} admin notices</h2></div></div>
+      <div className="war-admin-list">
+        {(data?.notifications || []).map((notice) => (
+          <article className="war-admin-row" key={notice.id}>
+            <div>
+              <strong>{notice.title}</strong>
+              <span>{notice.priority} | {notice.status} | {notice.type}</span>
+              {notice.message ? <span>{notice.message}</span> : null}
+              <span>completion {shortId(notice.related_completion_id)} | user {shortId(notice.related_user_id)}</span>
+            </div>
+            <div className="war-admin-row__actions">
+              <button type="button" onClick={() => void resolveNotification(notice.id)} disabled={notice.status === 'resolved'}>Resolve</button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+
+  const renderPrizes = () => (
+    <section className="war-panel">
+      <div className="war-section-head"><div><div className="war-kicker">Prizes</div><h2>{data?.prizePools?.length || 0} pools</h2></div></div>
+      <div className="war-two-col">
+        <div className="war-admin-list">
+          {(data?.prizePools || []).map((pool) => (
+            <article className="war-admin-row" key={pool.id}>
+              <div><strong>{pool.period_type} | {pool.status}</strong><span>{pool.reward_asset || 'reward'} {pool.reward_amount || ''}</span><span>{shortId(pool.id)} | {dateText(pool.created_at)}</span></div>
+            </article>
+          ))}
+        </div>
+        <div className="war-admin-list">
+          {(data?.prizeWinners || []).map((winner) => (
+            <article className="war-admin-row" key={winner.id}>
+              <div><strong>Winner #{winner.rank || '-'}</strong><span>{shortId(winner.wallet_address)} | {winner.status}</span><span>pool {shortId(winner.prize_pool_id)} | {winner.reward_amount || 0}</span></div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+
+  const renderActiveTab = () => {
+    if (activeTab === 'overview') return <><section className="war-panel"><div className="war-section-head"><div><div className="war-kicker">Live data</div><h2>Admin overview</h2></div><p>This console reads users, completions, social accounts, logs, notifications, prizes, and XP from the Railway API.</p></div>{renderStats()}</section>{renderReviews()}</>
+    if (activeTab === 'reviews') return renderReviews()
+    if (activeTab === 'users') return renderUsers()
+    if (activeTab === 'social') return renderSocial()
+    if (activeTab === 'logs') return renderLogs()
+    if (activeTab === 'notifications') return renderNotifications()
+    return renderPrizes()
+  }
 
   return (
     <div className="war-missions-page war-admin-page">
       <div className="war-missions-bg" aria-hidden="true" />
       <div className="war-missions-overlay" aria-hidden="true" />
       <header className="war-missions-top">
-        <Link to="/missions" className="war-missions-brand" aria-label="MemeWarzone War Missions">
-          <img src="/logo.png" alt="MemeWarzone" />
-        </Link>
-        <nav className="war-missions-nav" aria-label="War admin navigation">
-          <Link to="/missions">Missions</Link>
-          <Link to="/missions/leaderboard">Leaderboard</Link>
-          <Link to="/missions/rewards">Rewards</Link>
-        </nav>
+        <Link to="/missions" className="war-missions-brand" aria-label="MemeWarzone War Missions"><img src="/logo.png" alt="MemeWarzone" /></Link>
+        <nav className="war-missions-nav" aria-label="War admin navigation"><Link to="/missions">Missions</Link><Link to="/missions/leaderboard">Leaderboard</Link><Link to="/missions/rewards">Rewards</Link></nav>
       </header>
 
-      <main className="war-missions-shell">
-        <section className="war-panel war-admin-hero">
-          <div>
-            <div className="war-kicker">Command console</div>
-            <h1>War Missions Admin</h1>
-          </div>
-          <div className="war-admin-actions">
-            <button type="button" className="war-primary" onClick={() => void signIn()} disabled={busy === 'auth'}>{busy === 'auth' ? 'Connecting...' : 'Connect admin wallet'}</button>
-            <button type="button" className="war-secondary" onClick={() => void loadAdmin()} disabled={busy === 'load'}>Refresh</button>
-          </div>
-          {error ? <div className="war-alert">{error}</div> : null}
-          {message ? <div className="war-success">{message}</div> : null}
-        </section>
+      {!admin ? renderLogin() : (
+        <main className="war-missions-shell">
+          <section className="war-panel war-admin-hero">
+            <div><div className="war-kicker">Command console</div><h1>War Missions Admin</h1><p>Logged in as {admin.username}</p></div>
+            <div className="war-admin-actions"><button type="button" className="war-secondary" onClick={() => void loadData()} disabled={busy === 'load'}>{busy === 'load' ? 'Refreshing...' : 'Refresh data'}</button><button type="button" className="war-secondary" onClick={() => void logout()} disabled={busy === 'logout'}>Logout</button></div>
+            {error ? <div className="war-alert">{error}</div> : null}
+            {message ? <div className="war-success">{message}</div> : null}
+          </section>
 
-        <section className="war-panel">
-          <div className="war-section-head">
-            <div>
-              <div className="war-kicker">Action deck</div>
-              <h2>Operations</h2>
+          <section className="war-panel war-admin-toolbar">
+            <div className="war-admin-tabs">
+              {tabs.map((tab) => <button key={tab.key} type="button" className={activeTab === tab.key ? 'war-admin-tab war-admin-tab--active' : 'war-admin-tab'} onClick={() => setActiveTab(tab.key)}>{tab.label}</button>)}
             </div>
-          </div>
-          <div className="war-admin-command-grid">
-            <button type="button" onClick={() => void reviewCompletionPrompt()}>Manual review by ID</button>
-            <button type="button" onClick={() => void recheckSocialPrompt()}>Manual recheck by ID</button>
-            <button type="button" onClick={snapshotLeaderboard}>Snapshot leaderboard</button>
-            <button type="button" onClick={createPrizePool}>Create prize pool</button>
-            <button type="button" onClick={drawWinners}>Draw winners</button>
-            <button type="button" onClick={badgeAction}>Badge award/revoke</button>
-            <button type="button" onClick={recruiterReview}>Recruiter review</button>
-            <button type="button" onClick={categoryUpsert}>Category upsert</button>
-            <button type="button" onClick={questUpsert}>Quest upsert</button>
-            <button type="button" onClick={userAction}>User risk action</button>
-          </div>
-        </section>
+            <input className="war-admin-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search wallet, quest, provider, username..." />
+          </section>
 
-        <section className="war-two-col">
-          <div className="war-panel war-panel--tight">
-            <div className="war-kicker">Review queue</div>
-            <h2>{notifications.length} notifications</h2>
-            <div className="war-admin-list">
-              {notifications.slice(0, 14).map((notification) => {
-                const completionId = notification.related_completion_id
-                return (
-                  <article className="war-admin-row" key={notification.id}>
-                    <div>
-                      <strong>{notification.title}</strong>
-                      <span>{notification.priority} | {notification.status} | {notification.type}</span>
-                      <span>completion {shortId(completionId)} | app {shortId(notification.related_application_id)}</span>
-                      {notification.message ? <span>{notification.message}</span> : null}
-                    </div>
-                    <div className="war-admin-row__actions">
-                      {completionId ? <button type="button" onClick={() => setExpandedCheckId(completionId)}>Find data</button> : null}
-                      {completionId ? <button type="button" onClick={() => void recheckSocialDirect(completionId)}>Recheck</button> : null}
-                      <button type="button" onClick={() => void resolveNotification(notification.id)} disabled={notification.status === 'resolved'}>Resolve</button>
-                    </div>
-                  </article>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="war-panel war-panel--tight">
-            <div className="war-kicker">Social checks</div>
-            <h2>{socialChecks.length} reviewable</h2>
-            <div className="war-admin-list">
-              {socialChecks.slice(0, 20).map((check) => {
-                const isExpanded = expandedCheckId === check.completionId
-                return (
-                  <article className={isExpanded ? 'war-admin-row war-admin-row--wide war-admin-row--expanded' : 'war-admin-row war-admin-row--wide'} key={check.completionId}>
-                    <div>
-                      <strong>{check.quest.title}</strong>
-                      <span>{check.status} | {check.quest.verificationType} | {check.latestLog?.provider || String(check.verificationPayload?.provider || 'provider unknown')}</span>
-                      <span>wallet {shortId(check.user.walletAddress)} | risk {check.user.riskScore}</span>
-                      <span>submitted: {shortText(check.submittedValue)}</span>
-                      {check.latestLog?.message ? <span>log: {shortText(check.latestLog.message)}</span> : null}
-                    </div>
-                    <div className="war-admin-row__actions">
-                      <button type="button" onClick={() => setExpandedCheckId(isExpanded ? '' : check.completionId)}>{isExpanded ? 'Close data' : 'Open data'}</button>
-                      <button type="button" onClick={() => void recheckSocialDirect(check.completionId)}>Recheck</button>
-                    </div>
-                    {isExpanded ? renderCheckDetails(check) : null}
-                  </article>
-                )
-              })}
-            </div>
-          </div>
-        </section>
-
-        <section className="war-panel">
-          <div className="war-kicker">Prizes</div>
-          <h2>{pools.length} pools</h2>
-          <div className="war-admin-list">
-            {pools.slice(0, 8).map((pool) => (
-              <article className="war-admin-row" key={pool.id}>
-                <div>
-                  <strong>{pool.period_type} | {pool.status}</strong>
-                  <span>{pool.reward_asset || 'reward'} {pool.reward_amount || ''}</span>
-                  <span>{shortId(pool.id)}</span>
-                </div>
-              </article>
-            ))}
-            {winners.slice(0, 8).map((winner) => (
-              <article className="war-admin-row" key={winner.id}>
-                <div>
-                  <strong>Winner #{winner.rank || '-'}</strong>
-                  <span>{winner.wallet_address ? shortId(winner.wallet_address) : 'wallet pending'} | {winner.status}</span>
-                  <span>pool {shortId(winner.prize_pool_id)}</span>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      </main>
+          {renderActiveTab()}
+        </main>
+      )}
     </div>
   )
 }
