@@ -686,6 +686,13 @@
   align-items: center;
 }
 
+.war-admin-row--expanded {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  border-color: rgba(246, 211, 124, 0.28);
+  background: rgba(246, 211, 124, 0.055);
+}
+
 .war-admin-row > div {
   display: grid;
   gap: 4px;
@@ -696,19 +703,95 @@
   opacity: 0.5;
 }
 
+.war-admin-row__actions {
+  display: flex !important;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px !important;
+}
+
+.war-admin-details {
+  grid-column: 1 / -1;
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(246, 211, 124, 0.18);
+  background: rgba(0, 0, 0, 0.34);
+}
+
+.war-admin-details__head {
+  display: flex !important;
+  gap: 14px !important;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.war-admin-details__head h3 {
+  margin: 6px 0 0;
+  font-size: 22px;
+}
+
+.war-admin-details__grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px !important;
+}
+
+.war-admin-details__grid > div {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(246, 211, 124, 0.1);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.war-admin-details strong {
+  color: rgba(246, 211, 124, 0.96);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.war-admin-details span {
+  display: block;
+  margin-top: 4px;
+}
+
+.war-admin-details__json-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px !important;
+  margin-top: 12px;
+}
+
+.war-admin-details pre {
+  max-height: 320px;
+  overflow: auto;
+  margin: 8px 0 0;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(246, 211, 124, 0.1);
+  background: rgba(0, 0, 0, 0.42);
+  color: rgba(255, 247, 235, 0.78);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
 @media (max-width: 940px) {
   .war-hero,
   .war-two-col,
   .mission-grid,
   .war-rewards-grid,
   .war-stats,
-  .war-badge-grid {
+  .war-badge-grid,
+  .war-admin-details__grid,
+  .war-admin-details__json-grid {
     grid-template-columns: 1fr;
   }
 
   .war-missions-top,
   .war-section-head,
-  .war-admin-hero {
+  .war-admin-hero,
+  .war-admin-details__head {
     flex-direction: column;
     align-items: flex-start;
   }
