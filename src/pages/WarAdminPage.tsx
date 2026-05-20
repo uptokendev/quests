@@ -16,6 +16,32 @@ type AdminNotification = {
   created_at: string
 }
 
+type SocialCheck = {
+  completionId: string
+  status: string
+  submittedValue: string | null
+  verificationPayload: Record<string, unknown>
+  rejectionReason: string | null
+  updatedAt: string | null
+  user: {
+    walletAddress: string
+    displayName: string | null
+    riskScore: number
+  }
+  quest: {
+    slug: string
+    title: string
+    verificationType: string
+    periodType: string | null
+  }
+  latestLog: {
+    provider: string | null
+    status: string | null
+    message: string | null
+    createdAt: string
+  } | null
+}
+
 type PrizePool = {
   id: string
   period_type: string
@@ -39,6 +65,12 @@ function shortId(value: string | null) {
   return `${value.slice(0, 8)}...${value.slice(-4)}`
 }
 
+function shortText(value: unknown, fallback = 'none') {
+  const text = String(value || '').trim()
+  if (!text) return fallback
+  return text.length > 96 ? `${text.slice(0, 96)}...` : text
+}
+
 async function apiPost(path: string, body: Record<string, unknown>) {
   const response = await fetch(path, {
     method: 'POST',
@@ -53,6 +85,7 @@ async function apiPost(path: string, body: Record<string, unknown>) {
 
 export default function WarAdminPage() {
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
+  const [socialChecks, setSocialChecks] = useState<SocialCheck[]>([])
   const [pools, setPools] = useState<PrizePool[]>([])
   const [winners, setWinners] = useState<PrizeWinner[]>([])
   const [busy, setBusy] = useState('')
@@ -63,15 +96,19 @@ export default function WarAdminPage() {
     setBusy('load')
     setError('')
     try {
-      const [notificationResponse, prizeResponse] = await Promise.all([
+      const [notificationResponse, socialChecksResponse, prizeResponse] = await Promise.all([
         fetch('/api/wm-admin-notifications-list', { credentials: 'same-origin', cache: 'no-store' }),
+        fetch('/api/wm-admin-social-checks-list?status=review&limit=20', { credentials: 'same-origin', cache: 'no-store' }),
         fetch('/api/wm-admin-prizes', { credentials: 'same-origin', cache: 'no-store' }),
       ])
       const notificationData = await notificationResponse.json().catch(() => ({}))
+      const socialChecksData = await socialChecksResponse.json().catch(() => ({}))
       const prizeData = await prizeResponse.json().catch(() => ({}))
       if (!notificationResponse.ok || !notificationData?.ok) throw new Error(notificationData?.error || 'Admin notifications unavailable.')
+      if (!socialChecksResponse.ok || !socialChecksData?.ok) throw new Error(socialChecksData?.error || 'Social checks unavailable.')
       if (!prizeResponse.ok || !prizeData?.ok) throw new Error(prizeData?.error || 'Prize data unavailable.')
       setNotifications(notificationData.rows || [])
+      setSocialChecks(socialChecksData.rows || [])
       setPools(prizeData.pools || [])
       setWinners(prizeData.winners || [])
     } catch (err) {
@@ -307,28 +344,51 @@ export default function WarAdminPage() {
           </div>
 
           <div className="war-panel war-panel--tight">
-            <div className="war-kicker">Prizes</div>
-            <h2>{pools.length} pools</h2>
+            <div className="war-kicker">Social checks</div>
+            <h2>{socialChecks.length} in review</h2>
             <div className="war-admin-list">
-              {pools.slice(0, 8).map((pool) => (
-                <article className="war-admin-row" key={pool.id}>
+              {socialChecks.slice(0, 10).map((check) => (
+                <article className="war-admin-row war-admin-row--wide" key={check.completionId}>
                   <div>
-                    <strong>{pool.period_type} | {pool.status}</strong>
-                    <span>{pool.reward_asset || 'reward'} {pool.reward_amount || ''}</span>
-                    <span>{shortId(pool.id)}</span>
+                    <strong>{check.quest.title}</strong>
+                    <span>{check.status} | {check.quest.verificationType} | {check.latestLog?.provider || String(check.verificationPayload?.provider || 'provider unknown')}</span>
+                    <span>wallet {shortId(check.user.walletAddress)} | risk {check.user.riskScore}</span>
+                    <span>submitted: {shortText(check.submittedValue)}</span>
+                    {check.latestLog?.message ? <span>log: {shortText(check.latestLog.message)}</span> : null}
                   </div>
-                </article>
-              ))}
-              {winners.slice(0, 8).map((winner) => (
-                <article className="war-admin-row" key={winner.id}>
-                  <div>
-                    <strong>Winner #{winner.rank || '-'}</strong>
-                    <span>{winner.wallet_address ? shortId(winner.wallet_address) : 'wallet pending'} | {winner.status}</span>
-                    <span>pool {shortId(winner.prize_pool_id)}</span>
+                  <div className="war-admin-row__actions">
+                    <button type="button" onClick={() => void reviewCompletion(check.completionId, 'verified')}>Verify</button>
+                    <button type="button" onClick={() => void reviewCompletion(check.completionId, 'rejected')}>Reject</button>
+                    <button type="button" onClick={() => void recheckSocial(check.completionId)}>Recheck</button>
                   </div>
                 </article>
               ))}
             </div>
+          </div>
+        </section>
+
+        <section className="war-panel">
+          <div className="war-kicker">Prizes</div>
+          <h2>{pools.length} pools</h2>
+          <div className="war-admin-list">
+            {pools.slice(0, 8).map((pool) => (
+              <article className="war-admin-row" key={pool.id}>
+                <div>
+                  <strong>{pool.period_type} | {pool.status}</strong>
+                  <span>{pool.reward_asset || 'reward'} {pool.reward_amount || ''}</span>
+                  <span>{shortId(pool.id)}</span>
+                </div>
+              </article>
+            ))}
+            {winners.slice(0, 8).map((winner) => (
+              <article className="war-admin-row" key={winner.id}>
+                <div>
+                  <strong>Winner #{winner.rank || '-'}</strong>
+                  <span>{winner.wallet_address ? shortId(winner.wallet_address) : 'wallet pending'} | {winner.status}</span>
+                  <span>pool {shortId(winner.prize_pool_id)}</span>
+                </div>
+              </article>
+            ))}
           </div>
         </section>
       </main>
