@@ -127,6 +127,7 @@ export default function SocialIdentityPanel({ embedded = false }: SocialIdentity
     if (params.get('social') === 'x-connected') setMessage('X account connected and Start Here verification was submitted.')
     if (params.get('social') === 'telegram-connected') setMessage('Telegram connected. Welcome back to the quest board.')
     if (params.get('social') === 'discord-connected') setMessage('Discord connected. Welcome back to the quest board.')
+    if (params.get('discord_bot_added') === '1') setMessage('Discord bot added. You can now connect your personal Discord account from the quest board.')
     if (params.get('social_error')) setError(params.get('social_error') || 'Social connection failed.')
   }, [location.search])
 
