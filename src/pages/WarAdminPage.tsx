@@ -174,27 +174,32 @@ export default function WarAdminPage() {
     if (!response.ok || !data?.ok) throw new Error(data?.error || 'Notification update failed.')
   })
 
-  const reviewCompletion = (initialCompletionId?: string | null, initialStatus = 'verified') => runAction('Review completion', async () => {
-    const completionId = initialCompletionId || window.prompt('Completion ID') || ''
+  const reviewCompletionPrompt = () => runAction('Review completion', async () => {
+    const completionId = window.prompt('Completion ID') || ''
     if (!completionId) return
-    const status = window.prompt('Status', initialStatus) || initialStatus
-    const reason = window.prompt('Reason', status === 'verified' ? 'Admin verified from review queue' : 'Admin rejected from review queue') || 'Admin review'
+    const status = window.prompt('Status', 'verified') || 'verified'
+    const reason = window.prompt('Reason', 'Admin review') || 'Admin review'
     await apiPost('/api/wm-admin-review-completion', { completionId, status, reason })
   })
 
-  const recheckSocial = (initialCompletionId?: string | null) => runAction('Social recheck', async () => {
-    const completionId = initialCompletionId || window.prompt('Completion ID') || ''
+  const reviewCompletionDirect = (completionId: string, status: 'verified' | 'rejected') => runAction(status === 'verified' ? 'Verify completion' : 'Reject completion', async () => {
+    await apiPost('/api/wm-admin-review-completion', {
+      completionId,
+      status,
+      reason: status === 'verified' ? 'Admin verified from database review row' : 'Admin rejected from database review row',
+    })
+  })
+
+  const recheckSocialPrompt = () => runAction('Social recheck', async () => {
+    const completionId = window.prompt('Completion ID') || ''
     if (!completionId) return
-    const impressions = Number(window.prompt('Impressions', '0') || 0)
-    const likes = Number(window.prompt('Likes', '0') || 0)
-    const available = (window.prompt('Available?', 'yes') || 'yes').toLowerCase() !== 'no'
-    const expired = (window.prompt('Expired?', 'no') || 'no').toLowerCase() === 'yes'
+    await apiPost('/api/wm-admin-social-recheck', { completionId, reason: 'Admin social recheck' })
+  })
+
+  const recheckSocialDirect = (completionId: string) => runAction('Social recheck', async () => {
     await apiPost('/api/wm-admin-social-recheck', {
       completionId,
-      metrics: { impressionCount: impressions, likeCount: likes },
-      available,
-      expired,
-      reason: 'Admin social metric recheck',
+      reason: 'Admin social recheck from database review row',
     })
   })
 
@@ -230,7 +235,7 @@ export default function WarAdminPage() {
 
   const userAction = () => runAction('User action', async () => {
     const walletAddress = window.prompt('Wallet address') || ''
-    const action = window.prompt('Action', 'ban') || 'ban'
+    const action = window.prompt('Action', 'restrict') || 'restrict'
     const reason = window.prompt('Reason', 'Admin risk action') || 'Admin risk action'
     if (!walletAddress) return
     await apiPost('/api/wm-admin-user-action', { walletAddress, action, reason })
@@ -303,8 +308,8 @@ export default function WarAdminPage() {
             </div>
           </div>
           <div className="war-admin-command-grid">
-            <button type="button" onClick={() => void reviewCompletion()}>Review completion</button>
-            <button type="button" onClick={() => void recheckSocial()}>Social recheck</button>
+            <button type="button" onClick={() => void reviewCompletionPrompt()}>Manual review by ID</button>
+            <button type="button" onClick={() => void recheckSocialPrompt()}>Manual recheck by ID</button>
             <button type="button" onClick={snapshotLeaderboard}>Snapshot leaderboard</button>
             <button type="button" onClick={createPrizePool}>Create prize pool</button>
             <button type="button" onClick={drawWinners}>Draw winners</button>
@@ -312,7 +317,7 @@ export default function WarAdminPage() {
             <button type="button" onClick={recruiterReview}>Recruiter review</button>
             <button type="button" onClick={categoryUpsert}>Category upsert</button>
             <button type="button" onClick={questUpsert}>Quest upsert</button>
-            <button type="button" onClick={userAction}>Ban/unban user</button>
+            <button type="button" onClick={userAction}>User risk action</button>
           </div>
         </section>
 
@@ -332,9 +337,9 @@ export default function WarAdminPage() {
                       {notification.message ? <span>{notification.message}</span> : null}
                     </div>
                     <div className="war-admin-row__actions">
-                      {completionId ? <button type="button" onClick={() => void reviewCompletion(completionId, 'verified')}>Verify</button> : null}
-                      {completionId ? <button type="button" onClick={() => void reviewCompletion(completionId, 'rejected')}>Reject</button> : null}
-                      {completionId ? <button type="button" onClick={() => void recheckSocial(completionId)}>Recheck</button> : null}
+                      {completionId ? <button type="button" onClick={() => void reviewCompletionDirect(completionId, 'verified')}>Verify</button> : null}
+                      {completionId ? <button type="button" onClick={() => void reviewCompletionDirect(completionId, 'rejected')}>Reject</button> : null}
+                      {completionId ? <button type="button" onClick={() => void recheckSocialDirect(completionId)}>Recheck</button> : null}
                       <button type="button" onClick={() => void resolveNotification(notification.id)} disabled={notification.status === 'resolved'}>Resolve</button>
                     </div>
                   </article>
@@ -357,9 +362,9 @@ export default function WarAdminPage() {
                     {check.latestLog?.message ? <span>log: {shortText(check.latestLog.message)}</span> : null}
                   </div>
                   <div className="war-admin-row__actions">
-                    <button type="button" onClick={() => void reviewCompletion(check.completionId, 'verified')}>Verify</button>
-                    <button type="button" onClick={() => void reviewCompletion(check.completionId, 'rejected')}>Reject</button>
-                    <button type="button" onClick={() => void recheckSocial(check.completionId)}>Recheck</button>
+                    <button type="button" onClick={() => void reviewCompletionDirect(check.completionId, 'verified')}>Verify</button>
+                    <button type="button" onClick={() => void reviewCompletionDirect(check.completionId, 'rejected')}>Reject</button>
+                    <button type="button" onClick={() => void recheckSocialDirect(check.completionId)}>Recheck</button>
                   </div>
                 </article>
               ))}
