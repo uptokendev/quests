@@ -115,7 +115,7 @@ export default function WarAdminPage() {
     try {
       const [notificationResponse, socialChecksResponse, prizeResponse] = await Promise.all([
         fetch('/api/wm-admin-notifications-list', { credentials: 'same-origin', cache: 'no-store' }),
-        fetch('/api/wm-admin-social-checks-list?status=review&limit=20', { credentials: 'same-origin', cache: 'no-store' }),
+        fetch('/api/wm-admin-social-checks-list?status=reviewable&limit=50', { credentials: 'same-origin', cache: 'no-store' }),
         fetch('/api/wm-admin-prizes', { credentials: 'same-origin', cache: 'no-store' }),
       ])
       const notificationData = await notificationResponse.json().catch(() => ({}))
@@ -412,9 +412,9 @@ export default function WarAdminPage() {
 
           <div className="war-panel war-panel--tight">
             <div className="war-kicker">Social checks</div>
-            <h2>{socialChecks.length} in review</h2>
+            <h2>{socialChecks.length} reviewable</h2>
             <div className="war-admin-list">
-              {socialChecks.slice(0, 10).map((check) => {
+              {socialChecks.slice(0, 20).map((check) => {
                 const isExpanded = expandedCheckId === check.completionId
                 return (
                   <article className={isExpanded ? 'war-admin-row war-admin-row--wide war-admin-row--expanded' : 'war-admin-row war-admin-row--wide'} key={check.completionId}>
