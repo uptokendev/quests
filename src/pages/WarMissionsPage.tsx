@@ -24,6 +24,29 @@ type MissionCategory = {
   quests: Quest[]
 }
 
+type BadgeType = 'identity' | 'mission' | 'xp' | 'streak' | 'recruiter' | 'manual'
+
+type ProfileBadge = {
+  slug: string
+  title: string
+  description: string | null
+  type: BadgeType
+  rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
+  iconKey: string
+  criteria: Record<string, unknown>
+  displayOrder: number
+  unlocked: boolean
+  awardedAt: string | null
+  source: 'auto' | 'admin' | 'system' | null
+  reason: string | null
+}
+
+type BadgeSummary = {
+  total: number
+  unlocked: number
+  byType: Record<BadgeType, { total: number; unlocked: number }>
+}
+
 type WarProfile = {
   id: string
   walletAddress: string
@@ -46,29 +69,6 @@ type WarProfile = {
   }
   badges: ProfileBadge[]
   badgeSummary: BadgeSummary
-}
-
-type BadgeType = 'identity' | 'mission' | 'xp' | 'streak' | 'recruiter' | 'manual'
-
-type ProfileBadge = {
-  slug: string
-  title: string
-  description: string | null
-  type: BadgeType
-  rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
-  iconKey: string
-  criteria: Record<string, unknown>
-  displayOrder: number
-  unlocked: boolean
-  awardedAt: string | null
-  source: 'auto' | 'admin' | 'system' | null
-  reason: string | null
-}
-
-type BadgeSummary = {
-  total: number
-  unlocked: number
-  byType: Record<BadgeType, { total: number; unlocked: number }>
 }
 
 type ApiQuest = {
@@ -148,6 +148,14 @@ type PrizesResponse = {
   winners?: PrizeWinner[]
 }
 
+type SocialStatusResponse = {
+  ok?: boolean
+  authenticated?: boolean
+  telegramInviteUrl?: string | null
+  discordInviteUrl?: string | null
+  accounts?: Array<{ provider: string; username: string; providerUserId: string; lastVerifiedAt: string | null }>
+}
+
 const badgeTypeLabels: Record<BadgeType, string> = {
   identity: 'Identity',
   mission: 'Missions',
@@ -159,18 +167,26 @@ const badgeTypeLabels: Record<BadgeType, string> = {
 
 const badgeTypeOrder: BadgeType[] = ['identity', 'mission', 'xp', 'streak', 'recruiter', 'manual']
 
+const fallbackBadges: ProfileBadge[] = [
+  { slug: 'oathkeeper', title: 'Oathkeeper', description: 'Connect wallet and sign the War Missions oath.', type: 'identity', rarity: 'common', iconKey: 'oath', criteria: {}, displayOrder: 10, unlocked: false, awardedAt: null, source: null, reason: null },
+  { slug: 'start-here-cleared', title: 'Start Here Cleared', description: 'Complete every Start Here onboarding quest.', type: 'mission', rarity: 'uncommon', iconKey: 'start', criteria: {}, displayOrder: 100, unlocked: false, awardedAt: null, source: null, reason: null },
+  { slug: 'xp-500', title: '500 XP', description: 'Earn 500 active XP.', type: 'xp', rarity: 'common', iconKey: 'xp', criteria: {}, displayOrder: 200, unlocked: false, awardedAt: null, source: null, reason: null },
+  { slug: 'streak-3', title: '3-Day Streak', description: 'Build a 3-day Warpath streak.', type: 'streak', rarity: 'common', iconKey: 'streak', criteria: {}, displayOrder: 300, unlocked: false, awardedAt: null, source: null, reason: null },
+  { slug: 'recruiter-approved', title: 'Recruiter Approved', description: 'Get accepted into the Recruiter Program.', type: 'recruiter', rarity: 'uncommon', iconKey: 'recruiter', criteria: {}, displayOrder: 400, unlocked: false, awardedAt: null, source: null, reason: null },
+]
+
 const fallbackCategories: MissionCategory[] = [
   {
     slug: 'start-here',
     eyebrow: 'First run',
     title: 'Start Here',
     accent: '4 onboarding quests',
-    description: 'Connect wallet, link socials, and complete the basic soldier verification path.',
+    description: 'Connect wallet, verify identity, and join the core MemeWarzone channels.',
     quests: [
-      { title: 'Intercept Global Comms', description: 'Follow MemeWarzone on X.', xp: '100 XP', status: 'ready' },
-      { title: 'Access the Underground Comms', description: 'Join the official Telegram.', xp: '100 XP', status: 'ready' },
-      { title: 'Report to Base Camp', description: 'Join the official Discord.', xp: '100 XP', status: 'ready' },
-      { title: 'Take the Oath', description: 'Connect wallet and sign the oath message.', xp: '150 XP', status: 'ready' },
+      { slug: 'intercept-global-comms', title: 'Intercept Global Comms', description: 'Follow MemeWarzone on X.', xp: '100 XP', status: 'ready', verificationType: 'x_follow' },
+      { slug: 'access-underground-comms', title: 'Access the Underground Comms', description: 'Join the official Telegram group. This is a growth quest, not account connection.', xp: '100 XP', status: 'ready', verificationType: 'telegram_join' },
+      { slug: 'report-to-base-camp', title: 'Report to Base Camp', description: 'Join the official Discord server. This is a growth quest, not account connection.', xp: '100 XP', status: 'ready', verificationType: 'discord_join' },
+      { slug: 'take-the-oath', title: 'Take the Oath', description: 'Connect wallet and sign the oath message.', xp: '150 XP', status: 'ready', verificationType: 'wallet_connect' },
     ],
   },
   {
@@ -227,31 +243,6 @@ const fallbackCategories: MissionCategory[] = [
   },
 ]
 
-const fallbackBadges: ProfileBadge[] = [
-  { slug: 'oathkeeper', title: 'Oathkeeper', description: 'Connect wallet and sign the War Missions oath.', type: 'identity', rarity: 'common', iconKey: 'oath', criteria: {}, displayOrder: 10, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'start-here-cleared', title: 'Start Here Cleared', description: 'Complete every Start Here onboarding quest.', type: 'mission', rarity: 'uncommon', iconKey: 'start', criteria: {}, displayOrder: 100, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'daily-warpath-cleared', title: 'Daily Warpath Cleared', description: 'Complete the Daily Warpath bonus quest.', type: 'mission', rarity: 'uncommon', iconKey: 'daily', criteria: {}, displayOrder: 110, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'black-market-operator', title: 'Black Market Operator', description: 'Complete a Black Market Contract.', type: 'mission', rarity: 'rare', iconKey: 'market', criteria: {}, displayOrder: 120, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'recon-certified', title: 'Recon Certified', description: 'Pass every Recon briefing.', type: 'mission', rarity: 'rare', iconKey: 'recon', criteria: {}, displayOrder: 130, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'reinforcements-operator', title: 'Reinforcements Operator', description: 'Complete an Operation: Reinforcements quest.', type: 'mission', rarity: 'rare', iconKey: 'reinforce', criteria: {}, displayOrder: 140, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'xp-500', title: '500 XP', description: 'Earn 500 active XP.', type: 'xp', rarity: 'common', iconKey: 'xp', criteria: {}, displayOrder: 200, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'xp-1000', title: '1,000 XP', description: 'Earn 1,000 active XP.', type: 'xp', rarity: 'common', iconKey: 'xp', criteria: {}, displayOrder: 210, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'xp-5000', title: '5,000 XP', description: 'Earn 5,000 active XP.', type: 'xp', rarity: 'uncommon', iconKey: 'xp', criteria: {}, displayOrder: 220, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'xp-10000', title: '10,000 XP', description: 'Earn 10,000 active XP.', type: 'xp', rarity: 'rare', iconKey: 'xp', criteria: {}, displayOrder: 230, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'xp-25000', title: '25,000 XP', description: 'Earn 25,000 active XP.', type: 'xp', rarity: 'epic', iconKey: 'xp', criteria: {}, displayOrder: 240, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'xp-50000', title: '50,000 XP', description: 'Earn 50,000 active XP.', type: 'xp', rarity: 'legendary', iconKey: 'xp', criteria: {}, displayOrder: 250, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'streak-3', title: '3-Day Streak', description: 'Build a 3-day Warpath streak.', type: 'streak', rarity: 'common', iconKey: 'streak', criteria: {}, displayOrder: 300, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'streak-7', title: '7-Day Streak', description: 'Build a 7-day Warpath streak.', type: 'streak', rarity: 'uncommon', iconKey: 'streak', criteria: {}, displayOrder: 310, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'streak-14', title: '14-Day Streak', description: 'Build a 14-day Warpath streak.', type: 'streak', rarity: 'rare', iconKey: 'streak', criteria: {}, displayOrder: 320, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'streak-30', title: '30-Day Streak', description: 'Build a 30-day Warpath streak.', type: 'streak', rarity: 'legendary', iconKey: 'streak', criteria: {}, displayOrder: 330, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'recruiter-approved', title: 'Recruiter Approved', description: 'Get accepted into the Recruiter Program.', type: 'recruiter', rarity: 'uncommon', iconKey: 'recruiter', criteria: {}, displayOrder: 400, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'fireteam-2', title: 'Fireteam Builder', description: 'Recruit 2 verified users.', type: 'recruiter', rarity: 'uncommon', iconKey: 'recruits', criteria: {}, displayOrder: 410, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'squad-4', title: 'Squad Builder', description: 'Recruit 4 verified users.', type: 'recruiter', rarity: 'rare', iconKey: 'recruits', criteria: {}, displayOrder: 420, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'strike-force-10', title: 'Strike Force Lead', description: 'Recruit 10 verified users.', type: 'recruiter', rarity: 'epic', iconKey: 'recruits', criteria: {}, displayOrder: 430, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'battalion-20', title: 'Battalion Lead', description: 'Recruit 20 verified users.', type: 'recruiter', rarity: 'epic', iconKey: 'recruits', criteria: {}, displayOrder: 440, unlocked: false, awardedAt: null, source: null, reason: null },
-  { slug: 'brigade-30', title: 'Brigade Commander', description: 'Recruit 30 verified users.', type: 'recruiter', rarity: 'legendary', iconKey: 'recruits', criteria: {}, displayOrder: 450, unlocked: false, awardedAt: null, source: null, reason: null },
-]
-
 function shorten(value: string) {
   return value ? `${value.slice(0, 6)}...${value.slice(-4)}` : ''
 }
@@ -262,18 +253,12 @@ function xpLabel(value: number) {
 
 function categoryEyebrow(slug: string) {
   switch (slug) {
-    case 'start-here':
-      return 'First run'
-    case 'daily-warpath':
-      return 'Daily reset 00:00 UTC'
-    case 'black-market-contracts':
-      return 'High XP contracts'
-    case 'recon':
-      return 'Knowledge checks'
-    case 'reinforcements':
-      return 'Recruiter growth'
-    default:
-      return 'War Missions'
+    case 'start-here': return 'First run'
+    case 'daily-warpath': return 'Daily reset 00:00 UTC'
+    case 'black-market-contracts': return 'High XP contracts'
+    case 'recon': return 'Knowledge checks'
+    case 'reinforcements': return 'Recruiter growth'
+    default: return 'War Missions'
   }
 }
 
@@ -326,12 +311,7 @@ function badgeCode(badge: ProfileBadge) {
   if (badge.iconKey === 'xp') return 'XP'
   if (badge.iconKey === 'streak') return 'ST'
   if (badge.iconKey === 'recruits') return 'RC'
-  return badge.title
-    .split(/\s+/)
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
+  return badge.title.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
 }
 
 function summarizeFallbackBadges(badges: ProfileBadge[]): BadgeSummary {
@@ -345,11 +325,7 @@ function summarizeFallbackBadges(badges: ProfileBadge[]): BadgeSummary {
     if (badge.unlocked) byType[badge.type].unlocked += 1
   }
 
-  return {
-    total: badges.length,
-    unlocked: badges.filter((badge) => badge.unlocked).length,
-    byType,
-  }
+  return { total: badges.length, unlocked: badges.filter((badge) => badge.unlocked).length, byType }
 }
 
 export default function WarMissionsPage() {
@@ -373,22 +349,10 @@ export default function WarMissionsPage() {
     setLoading(true)
     setError('')
     try {
-      const response = await fetch('/api/wm-quests-list', {
-        credentials: 'same-origin',
-        cache: 'no-store',
-      })
-      const badgeResponse = await fetch('/api/wm-badges-list', {
-        credentials: 'same-origin',
-        cache: 'no-store',
-      })
-      const leaderboardResponse = await fetch('/api/wm-leaderboard-current?period=weekly', {
-        credentials: 'same-origin',
-        cache: 'no-store',
-      })
-      const prizesResponse = await fetch('/api/wm-prizes-public', {
-        credentials: 'same-origin',
-        cache: 'no-store',
-      })
+      const response = await fetch('/api/wm-quests-list', { credentials: 'same-origin', cache: 'no-store' })
+      const badgeResponse = await fetch('/api/wm-badges-list', { credentials: 'same-origin', cache: 'no-store' })
+      const leaderboardResponse = await fetch('/api/wm-leaderboard-current?period=weekly', { credentials: 'same-origin', cache: 'no-store' })
+      const prizesResponse = await fetch('/api/wm-prizes-public', { credentials: 'same-origin', cache: 'no-store' })
       const data = (await response.json().catch(() => ({}))) as WarMissionsResponse
       const badgeData = (await badgeResponse.json().catch(() => ({}))) as BadgesResponse
       const leaderboardData = (await leaderboardResponse.json().catch(() => ({}))) as LeaderboardResponse
@@ -412,19 +376,14 @@ export default function WarMissionsPage() {
     }
   }
 
-  useEffect(() => {
-    void loadMissions()
-  }, [])
-
+  useEffect(() => { void loadMissions() }, [])
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 30000)
     return () => window.clearInterval(timer)
   }, [])
 
   const categories = useMemo(() => {
-    if (missionsData?.categories?.length) {
-      return missionsData.categories.map((category) => mapApiCategory(category, isConnected))
-    }
+    if (missionsData?.categories?.length) return missionsData.categories.map((category) => mapApiCategory(category, isConnected))
     return fallbackCategories
   }, [isConnected, missionsData])
 
@@ -435,14 +394,10 @@ export default function WarMissionsPage() {
   }, [categories, section])
 
   const stats = useMemo(() => {
-    const pendingReview = categories.reduce((total, category) => {
-      return total + category.quests.filter((quest) => quest.status === 'pending' || quest.status === 'review' || quest.status === 'started').length
-    }, 0)
-
+    const pendingReview = categories.reduce((total, category) => total + category.quests.filter((quest) => ['pending', 'review', 'started'].includes(quest.status)).length, 0)
     const leaderboardRank = profile ? leaderboardRows.find((row) => row.userId === profile.id)?.rank || 'Unranked' : '0'
     const resetAt = profile?.dailyProgress?.resetAt ? new Date(profile.dailyProgress.resetAt).getTime() : 0
     const resetMinutes = resetAt > nowMs ? Math.ceil((resetAt - nowMs) / 60000) : 0
-
     return [
       { label: 'Total XP', value: profile ? profile.xpTotal.toLocaleString() : '0', help: 'Ledger backed' },
       { label: 'Daily streak', value: profile ? String(profile.dailyProgress.streakCount) : '0', help: resetMinutes ? `Reset in ${resetMinutes}m` : 'UTC reset' },
@@ -451,37 +406,19 @@ export default function WarMissionsPage() {
     ]
   }, [categories, leaderboardRows, nowMs, profile])
 
-  const badges = useMemo(() => {
-    return profile?.badges || badgesData?.badges || fallbackBadges
-  }, [badgesData, profile])
-
-  const badgeSummary = useMemo(() => {
-    return profile?.badgeSummary || badgesData?.badgeSummary || summarizeFallbackBadges(badges)
-  }, [badges, badgesData, profile])
-
+  const badges = useMemo(() => profile?.badges || badgesData?.badges || fallbackBadges, [badgesData, profile])
+  const badgeSummary = useMemo(() => profile?.badgeSummary || badgesData?.badgeSummary || summarizeFallbackBadges(badges), [badges, badgesData, profile])
   const unlockedBadges = useMemo(() => badges.filter((badge) => badge.unlocked), [badges])
-
-  const badgeGroups = useMemo(() => {
-    return badgeTypeOrder
-      .map((type) => ({
-        type,
-        label: badgeTypeLabels[type],
-        badges: badges.filter((badge) => badge.type === type),
-      }))
-      .filter((group) => group.badges.length > 0)
-  }, [badges])
+  const badgeGroups = useMemo(() => badgeTypeOrder.map((type) => ({ type, label: badgeTypeLabels[type], badges: badges.filter((badge) => badge.type === type) })).filter((group) => group.badges.length > 0), [badges])
 
   const signIn = async () => {
     setAuthing(true)
     setError('')
     try {
       const { signer, address } = await connectWallet()
-      const nonceResponse = await fetch(`/api/wm-auth-nonce?address=${encodeURIComponent(address)}`, {
-        credentials: 'same-origin',
-      })
+      const nonceResponse = await fetch(`/api/wm-auth-nonce?address=${encodeURIComponent(address)}`, { credentials: 'same-origin' })
       const nonceData = await nonceResponse.json().catch(() => ({}))
       if (!nonceResponse.ok || !nonceData?.message) throw new Error(nonceData?.error || 'Failed to request wallet challenge.')
-
       const signature = await signer.signMessage(nonceData.message)
       const verifyResponse = await fetch('/api/wm-auth-verify', {
         method: 'POST',
@@ -491,7 +428,6 @@ export default function WarMissionsPage() {
       })
       const verifyData = await verifyResponse.json().catch(() => ({}))
       if (!verifyResponse.ok || !verifyData?.ok) throw new Error(verifyData?.error || 'Wallet sign-in failed.')
-
       await loadMissions()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Wallet sign-in failed.')
@@ -501,26 +437,18 @@ export default function WarMissionsPage() {
   }
 
   const runQuestAction = async (quest: Quest) => {
-    if (!profile) {
-      await signIn()
-      return
-    }
+    if (!profile) { await signIn(); return }
     if (!quest.slug) return
-
     setActionBusy(quest.slug)
     setActionMessage('')
     setError('')
-
     try {
-      if (quest.verificationType === 'docs_quiz') {
-        await runQuiz(quest)
-      } else if (quest.verificationType === 'recruiter_application_submitted') {
-        await submitRecruiterApplication()
-      } else if (quest.verificationType === 'wallet_connect') {
-        await signIn()
-      } else if (['x_follow', 'telegram_join', 'discord_join'].includes(quest.verificationType || '')) {
-        await linkSocialForQuest(quest)
-      } else {
+      if (quest.verificationType === 'docs_quiz') await runQuiz(quest)
+      else if (quest.verificationType === 'recruiter_application_submitted') await submitRecruiterApplication()
+      else if (quest.verificationType === 'wallet_connect') await signIn()
+      else if (quest.verificationType === 'telegram_join' || quest.verificationType === 'discord_join') await runJoinQuest(quest)
+      else if (quest.verificationType === 'x_follow') await linkXForQuest(quest)
+      else {
         const submittedValue = window.prompt(`Submit proof for ${quest.title}`, quest.verificationType?.startsWith('x_') ? 'https://x.com/...' : '')
         if (submittedValue === null) return
         await submitQuest(quest.slug, submittedValue, { source: 'war_missions_ui' })
@@ -545,30 +473,59 @@ export default function WarMissionsPage() {
     setActionMessage(data.status === 'verified' ? 'Quest verified and XP awarded.' : 'Quest submitted for review.')
   }
 
-  const linkSocialForQuest = async (quest: Quest) => {
-    const provider = quest.verificationType === 'x_follow' ? 'x' : quest.verificationType === 'telegram_join' ? 'telegram' : 'discord'
-    const username = window.prompt(`Enter your ${provider.toUpperCase()} username or ID:`)
+  const getSocialStatus = async () => {
+    const response = await fetch('/api/wm-social-status', { credentials: 'same-origin', cache: 'no-store' })
+    const data = (await response.json().catch(() => ({}))) as SocialStatusResponse & { error?: string }
+    if (!response.ok || !data?.ok) throw new Error(data.error || 'Social status unavailable.')
+    return data
+  }
+
+  const runJoinQuest = async (quest: Quest) => {
+    const provider = quest.verificationType === 'telegram_join' ? 'telegram' : 'discord'
+    const socialStatus = await getSocialStatus()
+    const account = socialStatus.accounts?.find((item) => item.provider === provider)
+    const inviteUrl = provider === 'telegram' ? socialStatus.telegramInviteUrl : socialStatus.discordInviteUrl
+
+    if (inviteUrl) window.open(inviteUrl, '_blank', 'noopener,noreferrer')
+    if (!account) {
+      throw new Error(`${provider === 'telegram' ? 'Telegram' : 'Discord'} account is not connected yet. First connect it in Identity Status once, then come back and press this join quest again so we can verify membership.`)
+    }
+
+    const confirmed = window.confirm(`Join the official ${provider === 'telegram' ? 'Telegram group' : 'Discord server'} in the opened tab. After joining, press OK here to verify your membership.`)
+    if (!confirmed) return
+
+    const endpoint = provider === 'telegram' ? '/api/wm-telegram-member-check' : '/api/wm-discord-member-check'
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questSlug: quest.slug }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || !data?.ok) throw new Error(data?.error || `${provider} membership check failed.`)
+    if (data.membership?.ok) setActionMessage(`${provider === 'telegram' ? 'Telegram' : 'Discord'} membership confirmed. Quest verified and XP awarded.`)
+    else setActionMessage(`${provider === 'telegram' ? 'Telegram' : 'Discord'} membership was not confirmed yet. Join first, then run the check again.`)
+  }
+
+  const linkXForQuest = async (quest: Quest) => {
+    const username = window.prompt('Enter your X username or ID:')
     if (username === null) return
     const response = await fetch('/api/wm-social-link', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, username }),
+      body: JSON.stringify({ provider: 'x', username }),
     })
     const data = await response.json().catch(() => ({}))
-    if (!response.ok || !data?.ok) throw new Error(data?.error || 'Social link failed.')
-    await submitQuest(quest.slug || data.questSlug, username, { provider, username, source: 'social_link_manual_review' })
-    setActionMessage(`${provider.toUpperCase()} account linked and submitted for review.`)
+    if (!response.ok || !data?.ok) throw new Error(data?.error || 'X link failed.')
+    await submitQuest(quest.slug || data.questSlug, username, { provider: 'x', username, source: 'x_follow_manual_review' })
+    setActionMessage('X account linked and submitted for review.')
   }
 
   const runQuiz = async (quest: Quest) => {
-    const quizResponse = await fetch(`/api/wm-quiz-get?questSlug=${encodeURIComponent(quest.slug || '')}`, {
-      credentials: 'same-origin',
-      cache: 'no-store',
-    })
+    const quizResponse = await fetch(`/api/wm-quiz-get?questSlug=${encodeURIComponent(quest.slug || '')}`, { credentials: 'same-origin', cache: 'no-store' })
     const quizData = await quizResponse.json().catch(() => ({}))
     if (!quizResponse.ok || !quizData?.ok || !Array.isArray(quizData.questions)) throw new Error(quizData?.error || 'Quiz could not be loaded.')
-
     const answers: Record<string, string> = {}
     for (const question of quizData.questions) {
       const options = (question.answers || []).map((answer: { key: string; text: string }) => `${answer.key}: ${answer.text}`).join('\n')
@@ -576,7 +533,6 @@ export default function WarMissionsPage() {
       if (answer === null) return
       answers[question.id] = answer.trim()
     }
-
     const submitResponse = await fetch('/api/wm-quiz-submit', {
       method: 'POST',
       credentials: 'same-origin',
@@ -610,6 +566,8 @@ export default function WarMissionsPage() {
     if (quest.verificationType === 'docs_quiz') return 'Start quiz'
     if (quest.verificationType === 'recruiter_application_submitted') return 'Apply'
     if (quest.verificationType === 'wallet_connect') return 'Sign'
+    if (quest.verificationType === 'telegram_join') return quest.status === 'pending' || quest.status === 'review' ? 'Check Telegram' : 'Join Telegram'
+    if (quest.verificationType === 'discord_join') return quest.status === 'pending' || quest.status === 'review' ? 'Check Discord' : 'Join Discord'
     return quest.status === 'review' || quest.status === 'pending' ? 'Update proof' : 'Submit'
   }
 
@@ -619,11 +577,8 @@ export default function WarMissionsPage() {
     <div className="war-missions-page">
       <div className="war-missions-bg" aria-hidden="true" />
       <div className="war-missions-overlay" aria-hidden="true" />
-
       <header className="war-missions-top">
-        <Link to="/" className="war-missions-brand" aria-label="MemeWarzone War Missions home">
-          <img src="/logo.png" alt="MemeWarzone" />
-        </Link>
+        <Link to="/" className="war-missions-brand" aria-label="MemeWarzone War Missions home"><img src="/logo.png" alt="MemeWarzone" /></Link>
         <nav className="war-missions-nav" aria-label="War Missions navigation">
           <Link to="/missions">Missions</Link>
           <Link to="/missions/leaderboard">Leaderboard</Link>
@@ -638,13 +593,9 @@ export default function WarMissionsPage() {
           <div className="war-hero-copy">
             <div className="war-kicker">MemeWarzone Command</div>
             <h1>War Missions</h1>
-            <p>
-              Complete quests, earn XP, build streaks, recruit verified soldiers, and qualify for weekly prizes before the full Warzone opens.
-            </p>
+            <p>Complete quests, earn XP, build streaks, recruit verified soldiers, and qualify for weekly prizes before the full Warzone opens.</p>
             <div className="war-hero-actions">
-              <button type="button" className="war-primary" onClick={() => void signIn()} disabled={authing}>
-                {authing ? 'Waiting for signature...' : profile ? 'Wallet connected' : 'Connect wallet'}
-              </button>
+              <button type="button" className="war-primary" onClick={() => void signIn()} disabled={authing}>{authing ? 'Waiting for signature...' : profile ? 'Wallet connected' : 'Connect wallet'}</button>
               <Link to="/recruiter/portal" className="war-secondary">Recruiter sign in</Link>
             </div>
             {error ? <div className="war-alert">{error}</div> : null}
@@ -654,112 +605,49 @@ export default function WarMissionsPage() {
           <aside className="war-status-card">
             <div className="war-status-card__label">Identity status</div>
             <div className="war-status-card__title">{profile ? 'Wallet verified' : 'Wallet required'}</div>
-            <p>{profile ? `Profile ${shorten(profile.walletAddress)} is active. Take the Oath is awarded through the XP ledger.` : 'Wallet is the primary identity. Social accounts and quest completions attach to the wallet profile.'}</p>
+            <p>{profile ? `Profile ${shorten(profile.walletAddress)} is active. Telegram/Discord join quests are separate from account connection.` : 'Wallet is the primary identity. Social accounts can be connected once, then join quests verify membership.'}</p>
             <div className="war-checklist">
               <span className={profile ? 'war-checklist__done' : ''}>Wallet signature</span>
               <span>X account</span>
-              <span>Telegram</span>
-              <span>Discord</span>
+              <span>Telegram identity</span>
+              <span>Discord identity</span>
             </div>
             <div className="war-badge-strip" aria-label="Unlocked badges">
-              {unlockedBadges.length > 0 ? (
-                unlockedBadges.slice(0, 5).map((badge) => (
-                  <span className={`war-badge-dot war-badge-dot--${badge.rarity}`} title={badge.title} key={badge.slug}>
-                    {badgeCode(badge)}
-                  </span>
-                ))
-              ) : (
-                <span className="war-badge-strip__empty">No badges unlocked yet</span>
-              )}
+              {unlockedBadges.length > 0 ? unlockedBadges.slice(0, 5).map((badge) => <span className={`war-badge-dot war-badge-dot--${badge.rarity}`} title={badge.title} key={badge.slug}>{badgeCode(badge)}</span>) : <span className="war-badge-strip__empty">No badges unlocked yet</span>}
             </div>
           </aside>
         </section>
 
         <section className="war-stats" aria-label="Mission stats">
-          {stats.map((stat) => (
-            <div className="war-stat" key={stat.label}>
-              <div className="war-stat__label">{stat.label}</div>
-              <div className="war-stat__value">{stat.value}</div>
-              <div className="war-stat__help">{stat.help}</div>
-            </div>
-          ))}
+          {stats.map((stat) => <div className="war-stat" key={stat.label}><div className="war-stat__label">{stat.label}</div><div className="war-stat__value">{stat.value}</div><div className="war-stat__help">{stat.help}</div></div>)}
         </section>
 
         <section className="war-panel war-badges-panel" aria-label="War Missions badges">
           <div className="war-section-head">
-            <div>
-              <div className="war-kicker">Badge cabinet</div>
-              <h2>{badgeSummary.unlocked} / {badgeSummary.total} badges unlocked</h2>
-            </div>
+            <div><div className="war-kicker">Badge cabinet</div><h2>{badgeSummary.unlocked} / {badgeSummary.total} badges unlocked</h2></div>
             <p>Badges are off-chain achievements synced from verified quests, active XP, streaks, and recruiter milestones.</p>
           </div>
-
           <div className="war-badge-groups">
-            {badgeGroups.map((group) => (
-              <section className="war-badge-group" key={group.type}>
-                <div className="war-badge-group__head">
-                  <h3>{group.label}</h3>
-                  <span>{badgeSummary.byType[group.type].unlocked} / {badgeSummary.byType[group.type].total}</span>
-                </div>
-                <div className="war-badge-grid">
-                  {group.badges.map((badge) => (
-                    <article className={`war-badge-card ${badge.unlocked ? 'war-badge-card--unlocked' : ''}`} key={badge.slug}>
-                      <div className={`war-badge-medallion war-badge-medallion--${badge.rarity}`}>
-                        {badgeCode(badge)}
-                      </div>
-                      <div>
-                        <div className="war-badge-card__title">{badge.title}</div>
-                        <div className="war-badge-card__text">{badge.description}</div>
-                        <div className="war-badge-card__meta">{badge.unlocked ? 'Unlocked' : 'Locked'} | {badge.rarity}</div>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            ))}
+            {badgeGroups.map((group) => <section className="war-badge-group" key={group.type}><div className="war-badge-group__head"><h3>{group.label}</h3><span>{badgeSummary.byType[group.type].unlocked} / {badgeSummary.byType[group.type].total}</span></div><div className="war-badge-grid">{group.badges.map((badge) => <article className={`war-badge-card ${badge.unlocked ? 'war-badge-card--unlocked' : ''}`} key={badge.slug}><div className={`war-badge-medallion war-badge-medallion--${badge.rarity}`}>{badgeCode(badge)}</div><div><div className="war-badge-card__title">{badge.title}</div><div className="war-badge-card__text">{badge.description}</div><div className="war-badge-card__meta">{badge.unlocked ? 'Unlocked' : 'Locked'} | {badge.rarity}</div></div></article>)}</div></section>)}
           </div>
         </section>
 
         {visibleCategories.length > 0 ? (
           <section className="war-panel" id="missions">
             <div className="war-section-head">
-              <div>
-                <div className="war-kicker">Quest board</div>
-                <h2>{missionHeading}</h2>
-              </div>
+              <div><div className="war-kicker">Quest board</div><h2>{missionHeading}</h2></div>
               <p>{loading ? 'Loading mission data...' : missionsData?.categories?.length ? 'Live mission data from Supabase.' : 'Local mission scaffold shown until Supabase responds.'}</p>
             </div>
-
             <div className="mission-grid">
               {visibleCategories.map((category) => (
                 <article className="mission-card" key={category.title}>
-                  <div className="mission-card__top">
-                    <div>
-                      <div className="mission-card__eyebrow">{category.eyebrow}</div>
-                      <h3>{category.title}</h3>
-                    </div>
-                    <span>{category.accent}</span>
-                  </div>
+                  <div className="mission-card__top"><div><div className="mission-card__eyebrow">{category.eyebrow}</div><h3>{category.title}</h3></div><span>{category.accent}</span></div>
                   <p>{category.description}</p>
                   <div className="quest-list">
                     {category.quests.map((quest) => (
                       <div className="quest-row" key={quest.slug || quest.title}>
-                        <div>
-                          <div className="quest-row__title">{quest.title}</div>
-                          <div className="quest-row__text">{quest.description}</div>
-                        </div>
-                        <div className="quest-row__meta">
-                          <strong>{quest.xp}</strong>
-                          <span className={`quest-status quest-status--${quest.status}`}>{statusLabel(quest.status)}</span>
-                          <button
-                            type="button"
-                            className="quest-action"
-                            disabled={quest.status === 'locked' || quest.status === 'verified' || actionBusy === quest.slug}
-                            onClick={() => void runQuestAction(quest)}
-                          >
-                            {actionBusy === quest.slug ? 'Working...' : questActionLabel(quest)}
-                          </button>
-                        </div>
+                        <div><div className="quest-row__title">{quest.title}</div><div className="quest-row__text">{quest.description}</div></div>
+                        <div className="quest-row__meta"><strong>{quest.xp}</strong><span className={`quest-status quest-status--${quest.status}`}>{statusLabel(quest.status)}</span><button type="button" className="quest-action" disabled={quest.status === 'locked' || quest.status === 'verified' || actionBusy === quest.slug} onClick={() => void runQuestAction(quest)}>{actionBusy === quest.slug ? 'Working...' : questActionLabel(quest)}</button></div>
                       </div>
                     ))}
                   </div>
@@ -771,68 +659,22 @@ export default function WarMissionsPage() {
 
         {(section === 'rewards' || !section) ? (
           <section className="war-panel war-rewards-panel" id="rewards">
-            <div className="war-section-head">
-              <div>
-                <div className="war-kicker">Rewards</div>
-                <h2>Prize pools and winners</h2>
-              </div>
-              <p>Published pools and approved winners are pulled from the prize workflow.</p>
-            </div>
+            <div className="war-section-head"><div><div className="war-kicker">Rewards</div><h2>Prize pools and winners</h2></div><p>Published pools and approved winners are pulled from the prize workflow.</p></div>
             <div className="war-rewards-grid">
-              <div className="war-rewards-column">
-                <h3>Active pools</h3>
-                {prizePools.length === 0 ? (
-                  <div className="leaderboard-empty">No public prize pools yet.</div>
-                ) : prizePools.slice(0, 6).map((pool) => (
-                  <article className="war-reward-row" key={pool.id}>
-                    <strong>{pool.period_type} | {pool.status}</strong>
-                    <span>{pool.reward_asset || 'Reward'} {pool.reward_amount ? Number(pool.reward_amount).toLocaleString() : ''}</span>
-                  </article>
-                ))}
-              </div>
-              <div className="war-rewards-column">
-                <h3>Winners</h3>
-                {prizeWinners.length === 0 ? (
-                  <div className="leaderboard-empty">No approved winners yet.</div>
-                ) : prizeWinners.slice(0, 6).map((winner) => (
-                  <article className="war-reward-row" key={winner.id}>
-                    <strong>Rank #{winner.rank || '-'}</strong>
-                    <span>{winner.wallet_address ? shorten(winner.wallet_address) : 'Wallet pending'} | {winner.status}</span>
-                  </article>
-                ))}
-              </div>
+              <div className="war-rewards-column"><h3>Active pools</h3>{prizePools.length === 0 ? <div className="leaderboard-empty">No public prize pools yet.</div> : prizePools.slice(0, 6).map((pool) => <article className="war-reward-row" key={pool.id}><strong>{pool.period_type} | {pool.status}</strong><span>{pool.reward_asset || 'Reward'} {pool.reward_amount ? Number(pool.reward_amount).toLocaleString() : ''}</span></article>)}</div>
+              <div className="war-rewards-column"><h3>Winners</h3>{prizeWinners.length === 0 ? <div className="leaderboard-empty">No approved winners yet.</div> : prizeWinners.slice(0, 6).map((winner) => <article className="war-reward-row" key={winner.id}><strong>Rank #{winner.rank || '-'}</strong><span>{winner.wallet_address ? shorten(winner.wallet_address) : 'Wallet pending'} | {winner.status}</span></article>)}</div>
             </div>
           </section>
         ) : null}
 
         <section className="war-two-col" id="leaderboard">
           <div className="war-panel war-panel--tight">
-            <div className="war-kicker">Leaderboard preview</div>
-            <h2>Weekly front line</h2>
-            {leaderboardRows.length === 0 ? (
-              <div className="leaderboard-empty">No ranked soldiers yet. XP will be calculated from the active XP ledger.</div>
-            ) : (
-              <div className="leaderboard-list">
-                {leaderboardRows.slice(0, 8).map((row) => (
-                  <div className="leaderboard-row" key={row.userId}>
-                    <span>#{row.rank}</span>
-                    <strong>{row.displayName || shorten(row.walletAddress)}</strong>
-                    <em>{row.xpTotal.toLocaleString()} XP</em>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="war-kicker">Leaderboard preview</div><h2>Weekly front line</h2>
+            {leaderboardRows.length === 0 ? <div className="leaderboard-empty">No ranked soldiers yet. XP will be calculated from the active XP ledger.</div> : <div className="leaderboard-list">{leaderboardRows.slice(0, 8).map((row) => <div className="leaderboard-row" key={row.userId}><span>#{row.rank}</span><strong>{row.displayName || shorten(row.walletAddress)}</strong><em>{row.xpTotal.toLocaleString()} XP</em></div>)}</div>}
           </div>
-
           <div className="war-panel war-panel--tight">
-            <div className="war-kicker">Pending review</div>
-            <h2>Admin watchlist</h2>
-            <div className="review-list">
-              <span>High-XP Black Market submissions</span>
-              <span>Recruiter applications</span>
-              <span>X bio link checks</span>
-              <span>Duplicate content flags</span>
-            </div>
+            <div className="war-kicker">Pending review</div><h2>Admin watchlist</h2>
+            <div className="review-list"><span>High-XP Black Market submissions</span><span>Recruiter applications</span><span>X bio link checks</span><span>Duplicate content flags</span></div>
           </div>
         </section>
       </main>
