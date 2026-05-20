@@ -22,10 +22,14 @@ type SocialCheck = {
   submittedValue: string | null
   verificationPayload: Record<string, unknown>
   rejectionReason: string | null
+  verifiedAt?: string | null
   updatedAt: string | null
+  createdAt?: string | null
   user: {
+    id?: string
     walletAddress: string
     displayName: string | null
+    role?: string
     riskScore: number
   }
   quest: {
@@ -33,11 +37,15 @@ type SocialCheck = {
     title: string
     verificationType: string
     periodType: string | null
+    periodStart?: string | null
+    periodEnd?: string | null
   }
   latestLog: {
     provider: string | null
+    verificationType?: string | null
     status: string | null
     message: string | null
+    metadata?: Record<string, unknown>
     createdAt: string
   } | null
 }
@@ -71,6 +79,14 @@ function shortText(value: unknown, fallback = 'none') {
   return text.length > 96 ? `${text.slice(0, 96)}...` : text
 }
 
+function prettyJson(value: unknown) {
+  try {
+    return JSON.stringify(value ?? {}, null, 2)
+  } catch {
+    return String(value ?? '')
+  }
+}
+
 async function apiPost(path: string, body: Record<string, unknown>) {
   const response = await fetch(path, {
     method: 'POST',
@@ -88,6 +104,7 @@ export default function WarAdminPage() {
   const [socialChecks, setSocialChecks] = useState<SocialCheck[]>([])
   const [pools, setPools] = useState<PrizePool[]>([])
   const [winners, setWinners] = useState<PrizeWinner[]>([])
+  const [expandedCheckId, setExpandedCheckId] = useState('')
   const [busy, setBusy] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -186,7 +203,7 @@ export default function WarAdminPage() {
     await apiPost('/api/wm-admin-review-completion', {
       completionId,
       status,
-      reason: status === 'verified' ? 'Admin verified from database review row' : 'Admin rejected from database review row',
+      reason: status === 'verified' ? 'Admin verified from expanded review data' : 'Admin rejected from expanded review data',
     })
   })
 
@@ -199,7 +216,7 @@ export default function WarAdminPage() {
   const recheckSocialDirect = (completionId: string) => runAction('Social recheck', async () => {
     await apiPost('/api/wm-admin-social-recheck', {
       completionId,
-      reason: 'Admin social recheck from database review row',
+      reason: 'Admin social recheck from expanded review data',
     })
   })
 
@@ -271,6 +288,52 @@ export default function WarAdminPage() {
     await apiPost('/api/wm-admin-quest-upsert', { entity: 'category', slug, title, description, displayOrder, active })
   })
 
+  const renderCheckDetails = (check: SocialCheck) => (
+    <div className="war-admin-details">
+      <div className="war-admin-details__head">
+        <div>
+          <div className="war-kicker">Approval data</div>
+          <h3>{check.quest.title}</h3>
+        </div>
+        <div className="war-admin-row__actions">
+          <button type="button" onClick={() => void reviewCompletionDirect(check.completionId, 'verified')}>Approve</button>
+          <button type="button" onClick={() => void reviewCompletionDirect(check.completionId, 'rejected')}>Reject</button>
+          <button type="button" onClick={() => void recheckSocialDirect(check.completionId)}>Recheck source</button>
+        </div>
+      </div>
+
+      <div className="war-admin-details__grid">
+        <div><strong>Completion ID</strong><span>{check.completionId}</span></div>
+        <div><strong>Status</strong><span>{check.status}</span></div>
+        <div><strong>Provider</strong><span>{check.latestLog?.provider || String(check.verificationPayload?.provider || 'unknown')}</span></div>
+        <div><strong>Submitted value</strong><span>{shortText(check.submittedValue, 'empty')}</span></div>
+        <div><strong>Wallet</strong><span>{check.user.walletAddress}</span></div>
+        <div><strong>Display name</strong><span>{check.user.displayName || 'none'}</span></div>
+        <div><strong>Risk score</strong><span>{check.user.riskScore}</span></div>
+        <div><strong>Quest slug</strong><span>{check.quest.slug}</span></div>
+        <div><strong>Verification type</strong><span>{check.quest.verificationType}</span></div>
+        <div><strong>Period</strong><span>{check.quest.periodType || 'none'}</span></div>
+        <div><strong>Created</strong><span>{check.createdAt || 'unknown'}</span></div>
+        <div><strong>Updated</strong><span>{check.updatedAt || 'unknown'}</span></div>
+        <div><strong>Verified</strong><span>{check.verifiedAt || 'not verified'}</span></div>
+        <div><strong>Rejection reason</strong><span>{check.rejectionReason || 'none'}</span></div>
+        <div><strong>Latest log</strong><span>{check.latestLog?.message || 'none'}</span></div>
+        <div><strong>Latest log status</strong><span>{check.latestLog?.status || 'none'}</span></div>
+      </div>
+
+      <div className="war-admin-details__json-grid">
+        <div>
+          <strong>Verification payload</strong>
+          <pre>{prettyJson(check.verificationPayload)}</pre>
+        </div>
+        <div>
+          <strong>Latest verification log</strong>
+          <pre>{prettyJson(check.latestLog)}</pre>
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <div className="war-missions-page war-admin-page">
       <div className="war-missions-bg" aria-hidden="true" />
@@ -337,8 +400,7 @@ export default function WarAdminPage() {
                       {notification.message ? <span>{notification.message}</span> : null}
                     </div>
                     <div className="war-admin-row__actions">
-                      {completionId ? <button type="button" onClick={() => void reviewCompletionDirect(completionId, 'verified')}>Verify</button> : null}
-                      {completionId ? <button type="button" onClick={() => void reviewCompletionDirect(completionId, 'rejected')}>Reject</button> : null}
+                      {completionId ? <button type="button" onClick={() => setExpandedCheckId(completionId)}>Find data</button> : null}
                       {completionId ? <button type="button" onClick={() => void recheckSocialDirect(completionId)}>Recheck</button> : null}
                       <button type="button" onClick={() => void resolveNotification(notification.id)} disabled={notification.status === 'resolved'}>Resolve</button>
                     </div>
@@ -352,22 +414,25 @@ export default function WarAdminPage() {
             <div className="war-kicker">Social checks</div>
             <h2>{socialChecks.length} in review</h2>
             <div className="war-admin-list">
-              {socialChecks.slice(0, 10).map((check) => (
-                <article className="war-admin-row war-admin-row--wide" key={check.completionId}>
-                  <div>
-                    <strong>{check.quest.title}</strong>
-                    <span>{check.status} | {check.quest.verificationType} | {check.latestLog?.provider || String(check.verificationPayload?.provider || 'provider unknown')}</span>
-                    <span>wallet {shortId(check.user.walletAddress)} | risk {check.user.riskScore}</span>
-                    <span>submitted: {shortText(check.submittedValue)}</span>
-                    {check.latestLog?.message ? <span>log: {shortText(check.latestLog.message)}</span> : null}
-                  </div>
-                  <div className="war-admin-row__actions">
-                    <button type="button" onClick={() => void reviewCompletionDirect(check.completionId, 'verified')}>Verify</button>
-                    <button type="button" onClick={() => void reviewCompletionDirect(check.completionId, 'rejected')}>Reject</button>
-                    <button type="button" onClick={() => void recheckSocialDirect(check.completionId)}>Recheck</button>
-                  </div>
-                </article>
-              ))}
+              {socialChecks.slice(0, 10).map((check) => {
+                const isExpanded = expandedCheckId === check.completionId
+                return (
+                  <article className={isExpanded ? 'war-admin-row war-admin-row--wide war-admin-row--expanded' : 'war-admin-row war-admin-row--wide'} key={check.completionId}>
+                    <div>
+                      <strong>{check.quest.title}</strong>
+                      <span>{check.status} | {check.quest.verificationType} | {check.latestLog?.provider || String(check.verificationPayload?.provider || 'provider unknown')}</span>
+                      <span>wallet {shortId(check.user.walletAddress)} | risk {check.user.riskScore}</span>
+                      <span>submitted: {shortText(check.submittedValue)}</span>
+                      {check.latestLog?.message ? <span>log: {shortText(check.latestLog.message)}</span> : null}
+                    </div>
+                    <div className="war-admin-row__actions">
+                      <button type="button" onClick={() => setExpandedCheckId(isExpanded ? '' : check.completionId)}>{isExpanded ? 'Close data' : 'Open data'}</button>
+                      <button type="button" onClick={() => void recheckSocialDirect(check.completionId)}>Recheck</button>
+                    </div>
+                    {isExpanded ? renderCheckDetails(check) : null}
+                  </article>
+                )
+              })}
             </div>
           </div>
         </section>
