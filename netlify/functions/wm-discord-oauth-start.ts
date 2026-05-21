@@ -5,14 +5,6 @@ import { readWarAuth, unauthorized } from './_lib/war-auth'
 const DISCORD_OAUTH_COOKIE = 'mwz_discord_oauth'
 const DISCORD_OAUTH_TTL_SECONDS = 10 * 60
 
-function getBaseUrl(event: any) {
-  const configured = process.env.APP_BASE_URL || process.env.VITE_APP_BASE_URL || ''
-  if (configured) return configured.replace(/\/$/, '')
-  const proto = String(event.headers?.['x-forwarded-proto'] || event.headers?.['X-Forwarded-Proto'] || 'https')
-  const host = String(event.headers?.host || event.headers?.Host || '')
-  return `${proto}://${host}`
-}
-
 function safeReturnTo(value: string) {
   const fallback = '/missions'
   const raw = String(value || fallback).trim()
@@ -55,25 +47,8 @@ export const handler = async (event: any) => {
     url.searchParams.set('state', state)
     url.searchParams.set('prompt', 'consent')
 
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Set-Cookie': cookie,
-        'Cache-Control': 'no-store',
-      },
-      body: JSON.stringify({ ok: true, authorizeUrl: url.toString() }),
-    }
+    return json(200, { ok: true, authorizeUrl: url.toString() }, { 'Set-Cookie': cookie })
   } catch (error) {
-    const baseUrl = getBaseUrl(event)
-    const message = encodeURIComponent(error instanceof Error ? error.message : 'Discord OAuth start failed.')
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-store',
-      },
-      body: JSON.stringify({ ok: false, error: `${baseUrl}/missions?social_error=${message}` }),
-    }
+    return json(500, { error: error instanceof Error ? error.message : 'Discord OAuth start failed.' })
   }
 }
