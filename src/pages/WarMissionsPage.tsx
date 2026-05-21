@@ -151,9 +151,54 @@ type PrizesResponse = {
 type SocialStatusResponse = {
   ok?: boolean
   authenticated?: boolean
+  xOAuthConfigured?: boolean
   telegramInviteUrl?: string | null
   discordInviteUrl?: string | null
   accounts?: Array<{ provider: string; username: string; providerUserId: string; lastVerifiedAt: string | null }>
+}
+
+type XOAuthStartResponse = {
+  ok?: boolean
+  error?: string
+  authorizeUrl?: string
+}
+
+type XFollowCheckResponse = {
+  ok?: boolean
+  error?: string
+  follows?: boolean
+  status?: string
+  result?: {
+    ok?: boolean
+    status?: string | null
+    error?: string | null
+  }
+}
+
+type QuizQuestion = {
+  id: string
+  prompt: string
+  answers: Array<{ key: string; text: string }>
+}
+
+type QuizLoadResponse = {
+  ok?: boolean
+  error?: string
+  title?: string
+  cooldownUntil?: string | null
+  cooldownActive?: boolean
+  passingScore?: number
+  questions?: QuizQuestion[]
+}
+
+type QuizSubmitResponse = {
+  ok?: boolean
+  error?: string
+  passed?: boolean
+  score?: number
+  totalQuestions?: number
+  passingScore?: number
+  cooldownUntil?: string | null
 }
 
 const badgeTypeLabels: Record<BadgeType, string> = {
@@ -222,10 +267,10 @@ const fallbackCategories: MissionCategory[] = [
     accent: '3/4 to pass',
     description: 'Documentation quizzes for basics, leagues, treasury objectives, and safety rules.',
     quests: [
-      { title: 'Read the Basics', description: 'Read docs and pass the quiz.', xp: '250 XP', status: 'locked' },
-      { title: 'Leagues and Airdrop Briefing', description: 'Learn weekly and monthly competition loops.', xp: '300 XP', status: 'locked' },
-      { title: 'Fees and Treasury Objectives', description: 'Understand the prize and revenue loops.', xp: '300 XP', status: 'locked' },
-      { title: 'Security & Safety Recon', description: 'Learn safety rules and anti-farming policy.', xp: '350 XP', status: 'locked' },
+      { title: 'Read the Basics', description: 'Read docs and pass the quiz.', xp: '250 XP', status: 'locked', verificationType: 'docs_quiz' },
+      { title: 'Leagues and Airdrop Briefing', description: 'Learn weekly and monthly competition loops.', xp: '300 XP', status: 'locked', verificationType: 'docs_quiz' },
+      { title: 'Fees and Treasury Objectives', description: 'Understand the prize and revenue loops.', xp: '300 XP', status: 'locked', verificationType: 'docs_quiz' },
+      { title: 'Security & Safety Recon', description: 'Learn safety rules and anti-farming policy.', xp: '350 XP', status: 'locked', verificationType: 'docs_quiz' },
     ],
   },
   {
@@ -235,7 +280,7 @@ const fallbackCategories: MissionCategory[] = [
     accent: 'verified recruits only',
     description: 'Apply for recruiter, get approved, generate links, and build verified squads.',
     quests: [
-      { title: 'Apply for Recruiter Program', description: 'Submit the recruiter application.', xp: '500 XP', status: 'ready' },
+      { title: 'Apply for Recruiter Program', description: 'Submit the recruiter application.', xp: '500 XP', status: 'ready', verificationType: 'recruiter_application_submitted' },
       { title: 'Get Accepted', description: 'Admin approves your recruiter profile.', xp: '2,000 XP', status: 'review' },
       { title: 'Assemble a Fireteam', description: 'Bring in 2 verified recruits.', xp: '1,000 XP', status: 'locked' },
       { title: 'Lead a Battalion', description: 'Bring in 20 verified recruits.', xp: '15,000 XP', status: 'locked' },
@@ -497,6 +542,28 @@ export default function WarMissionsPage() {
     return data
   }
 
+  const startXOAuth = async () => {
+    const response = await fetch('/api/wm-x-oauth-start', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const data = (await response.json().catch(() => ({}))) as XOAuthStartResponse
+    if (!response.ok || !data?.ok || !data.authorizeUrl) throw new Error(data?.error || 'X connection could not start.')
+    window.location.href = data.authorizeUrl
+  }
+
+  const checkXFollow = async () => {
+    const response = await fetch('/api/wm-x-follow-check', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const data = (await response.json().catch(() => ({}))) as XFollowCheckResponse
+    if (!response.ok || !data?.ok) throw new Error(data?.error || 'X follow check failed.')
+    return data
+  }
+
   const runJoinQuest = async (quest: Quest) => {
     if (!quest.slug) return
 
@@ -532,41 +599,61 @@ export default function WarMissionsPage() {
     setActionMessage(`${label} membership is not confirmed yet${lastMessage ? `: ${lastMessage}` : ''}. If you just joined, the bot will also keep checking when you refresh the quest page.`)
   }
 
-  const linkXForQuest = async (quest: Quest) => {
-    const username = window.prompt('Enter your X username or ID:')
-    if (username === null) return
-    const response = await fetch('/api/wm-social-link', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider: 'x', username }),
-    })
-    const data = await response.json().catch(() => ({}))
-    if (!response.ok || !data?.ok) throw new Error(data?.error || 'X link failed.')
-    await submitQuest(quest.slug || data.questSlug, username, { provider: 'x', username, source: 'x_follow_manual_review' })
-    setActionMessage('X account linked and submitted for review.')
+  const linkXForQuest = async (_quest: Quest) => {
+    const socialStatus = await getSocialStatus()
+    const xAccount = socialStatus.accounts?.find((item) => item.provider === 'x')
+
+    if (!xAccount) {
+      if (!socialStatus.xOAuthConfigured) {
+        throw new Error('X OAuth is not configured on this deploy yet.')
+      }
+      setActionMessage('Opening X authorization. Approve the connection, then you will return here for follow verification.')
+      await startXOAuth()
+      return
+    }
+
+    const data = await checkXFollow()
+    if (data.follows || data.status === 'verified' || data.result?.ok) {
+      setActionMessage('X follow confirmed. Quest verified and XP awarded.')
+      return
+    }
+
+    setActionMessage('X account is linked, but the required follow is not confirmed yet. Follow the official account, then run this check again.')
   }
 
   const runQuiz = async (quest: Quest) => {
-    const quizResponse = await fetch(`/api/wm-quiz-get?questSlug=${encodeURIComponent(quest.slug || '')}`, { credentials: 'same-origin', cache: 'no-store' })
-    const quizData = await quizResponse.json().catch(() => ({}))
+    const quizResponse = await fetch(`/api/wm-quiz-load?questSlug=${encodeURIComponent(quest.slug || '')}`, { credentials: 'same-origin', cache: 'no-store' })
+    const quizData = (await quizResponse.json().catch(() => ({}))) as QuizLoadResponse
     if (!quizResponse.ok || !quizData?.ok || !Array.isArray(quizData.questions)) throw new Error(quizData?.error || 'Quiz could not be loaded.')
-    const answers: Record<string, string> = {}
-    for (const question of quizData.questions) {
-      const options = (question.answers || []).map((answer: { key: string; text: string }) => `${answer.key}: ${answer.text}`).join('\n')
-      const answer = window.prompt(`${question.question}\n\n${options}\n\nEnter answer key:`)
-      if (answer === null) return
-      answers[question.id] = answer.trim()
+    if (quizData.cooldownActive) {
+      throw new Error(quizData.cooldownUntil ? `Quiz retry is locked until ${new Date(quizData.cooldownUntil).toLocaleString()}.` : 'Quiz retry cooldown is active.')
     }
+
+    const answers: Record<string, string> = {}
+    const questionIds: string[] = []
+    for (const question of quizData.questions) {
+      const options = (question.answers || []).map((answer) => `${answer.key}: ${answer.text}`).join('\n')
+      const answer = window.prompt(`${question.prompt}\n\n${options}\n\nEnter answer key:`)
+      if (answer === null) return
+      answers[question.id] = answer.trim().toLowerCase()
+      questionIds.push(question.id)
+    }
+
     const submitResponse = await fetch('/api/wm-quiz-submit', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ questSlug: quest.slug, answers }),
+      body: JSON.stringify({ questSlug: quest.slug, answers, questionIds }),
     })
-    const submitData = await submitResponse.json().catch(() => ({}))
+    const submitData = (await submitResponse.json().catch(() => ({}))) as QuizSubmitResponse
     if (!submitResponse.ok || !submitData?.ok) throw new Error(submitData?.error || 'Quiz submission failed.')
-    setActionMessage(submitData.passed ? `Quiz passed: ${submitData.score}/${submitData.passScore}.` : `Quiz failed: ${submitData.score}/${submitData.passScore}.`)
+
+    const passingScore = submitData.passingScore ?? quizData.passingScore ?? 0
+    setActionMessage(
+      submitData.passed
+        ? `Quiz passed: ${submitData.score}/${submitData.totalQuestions}. Needed ${passingScore}.`
+        : `Quiz failed: ${submitData.score}/${submitData.totalQuestions}. Needed ${passingScore}.${submitData.cooldownUntil ? ` Retry after ${new Date(submitData.cooldownUntil).toLocaleString()}.` : ''}`,
+    )
   }
 
   const submitRecruiterApplication = async () => {
@@ -593,6 +680,7 @@ export default function WarMissionsPage() {
     if (quest.verificationType === 'wallet_connect') return 'Sign'
     if (quest.verificationType === 'telegram_join') return 'Join & verify TG'
     if (quest.verificationType === 'discord_join') return 'Join & verify Discord'
+    if (quest.verificationType === 'x_follow') return 'Connect / verify X'
     return quest.status === 'review' || quest.status === 'pending' ? 'Update proof' : 'Submit'
   }
 
