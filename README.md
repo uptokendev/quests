@@ -24,8 +24,16 @@ The quests site uses its own Netlify Functions under `quests/netlify/functions`.
 - `WM_MAINTENANCE_SECRET`
 - `WM_REQUIRED_X_TAG`
 - `X_BEARER_TOKEN` or `TWITTER_BEARER_TOKEN`
+- `X_CLIENT_ID`
+- `X_CLIENT_SECRET`
+- `X_REDIRECT_URI`
 - `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_BOT_USERNAME` or `WM_TELEGRAM_BOT_URL`
 - `DISCORD_BOT_TOKEN`
+- `DISCORD_CLIENT_ID`
+- `DISCORD_CLIENT_SECRET`
+- `DISCORD_REDIRECT_URI`
+- `WM_DISCORD_BOT_INVITE_URL` (optional)
 - `WM_TELEGRAM_GROUP_ID`
 - `WM_DISCORD_GUILD_ID`
 - `WM_DISCORD_CHANNEL_IDS`
@@ -65,6 +73,13 @@ For now, copy them from the current landing app public folder so the visual styl
 - `/api/wm-quests-list`
 - `/api/wm-quests-submit`
 - `/api/wm-social-link`
+- `/api/wm-social-status`
+- `/api/wm-x-oauth-start`
+- `/api/wm-x-oauth-callback`
+- `/api/wm-telegram-link-start`
+- `/api/wm-telegram-verify`
+- `/api/wm-discord-oauth-start`
+- `/api/wm-discord-oauth-callback`
 - `/api/wm-quiz-get`
 - `/api/wm-quiz-submit`
 - `/api/wm-recruiter-apply`
