@@ -40,6 +40,12 @@ type DiscordOAuthStartResponse = {
   authorizeUrl?: string
 }
 
+type XOAuthStartResponse = {
+  ok?: boolean
+  error?: string
+  authorizeUrl?: string
+}
+
 type SocialIdentityPanelProps = {
   embedded?: boolean
 }
@@ -124,7 +130,8 @@ export default function SocialIdentityPanel({ embedded = false }: SocialIdentity
 
   useEffect(() => {
     const params = new URLSearchParams(location.search)
-    if (params.get('social') === 'x-connected') setMessage('X account connected and Start Here verification was submitted.')
+    if (params.get('social') === 'x-connected') setMessage('X account connected. Follow check is ready from the quest board.')
+    if (params.get('social') === 'x-connected-and-following') setMessage('X account connected and follow verified. Start Here progress has been updated.')
     if (params.get('social') === 'telegram-connected') setMessage('Telegram connected. Welcome back to the quest board.')
     if (params.get('social') === 'discord-connected') setMessage('Discord connected. Welcome back to the quest board.')
     if (params.get('discord_bot_added') === '1') setMessage('Discord bot added. You can now connect your personal Discord account from the quest board.')
@@ -222,7 +229,7 @@ export default function SocialIdentityPanel({ embedded = false }: SocialIdentity
     }
   }
 
-  const connectX = () => {
+  const connectX = async () => {
     if (!status?.authenticated) {
       setError('Connect your wallet first, then link X.')
       return
@@ -231,8 +238,27 @@ export default function SocialIdentityPanel({ embedded = false }: SocialIdentity
       setError('X OAuth is not configured on this deploy yet.')
       return
     }
-    const returnTo = `${location.pathname}${location.search || ''}`
-    window.location.href = `/api/wm-x-oauth-start?returnTo=${encodeURIComponent(returnTo)}`
+
+    setBusy('x')
+    setError('')
+    setMessage('Opening X authorization. Approve the connection to return to the quest board.')
+
+    try {
+      const response = await fetch('/api/wm-x-oauth-start', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = (await response.json().catch(() => ({}))) as XOAuthStartResponse
+      if (!response.ok || !data?.ok || !data.authorizeUrl) {
+        throw new Error(data?.error || 'X connection could not start.')
+      }
+
+      window.location.href = data.authorizeUrl
+    } catch (err) {
+      setBusy('')
+      setError(err instanceof Error ? err.message : 'X connection could not start.')
+    }
   }
 
   const xAccount = accountsByProvider.get('x')
@@ -261,8 +287,8 @@ export default function SocialIdentityPanel({ embedded = false }: SocialIdentity
           <strong>X</strong>
           <p>{xAccount ? `@${xAccount.username}` : 'Connect X OAuth for the main social identity path.'}</p>
         </div>
-        <button type="button" onClick={connectX} disabled={busy !== '' || loading || Boolean(xAccount)}>
-          {xAccount ? 'Connected' : 'Connect X'}
+        <button type="button" onClick={() => void connectX()} disabled={busy !== '' || loading || Boolean(xAccount)}>
+          {xAccount ? 'Connected' : busy === 'x' ? 'Opening...' : 'Connect X'}
         </button>
       </div>
 
