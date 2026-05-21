@@ -40,6 +40,12 @@ The quests site uses its own Netlify Functions under `quests/netlify/functions`.
 
 Wallet connect uses the same injected-wallet flow as the MemeBattles frontend: MetaMask/Rabby, Binance Wallet, or another BSC-compatible injected EVM wallet. It does not require a WalletConnect/Reown project ID.
 
+## Social verification notes
+
+- Telegram Start Here rechecks now verify group membership against `WM_TELEGRAM_GROUP_ID` when the bot token is present.
+- Discord Start Here rechecks now verify guild membership against `WM_DISCORD_GUILD_ID` when the bot token is present.
+- If those provider settings are missing, the admin recheck flow keeps the completion in review instead of auto-approving it.
+
 ## Asset note
 
 The quests app expects these files in `quests/public` before production deploy:
