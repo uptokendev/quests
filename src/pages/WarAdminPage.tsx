@@ -139,13 +139,56 @@ type AdminConsoleData = {
   prizeWinners?: PrizeWinner[]
 }
 
-type TabKey = 'overview' | 'reviews' | 'users' | 'social' | 'logs' | 'notifications' | 'prizes'
+type QuizAnswer = {
+  key: string
+  text: string
+}
+
+type QuizQuestion = {
+  id: string
+  questTemplateId: string
+  questSlug: string
+  questTitle: string
+  prompt: string
+  answers: QuizAnswer[]
+  correctAnswerKey: string
+  explanation: string
+  active: boolean
+  displayOrder: number
+  metadata: Record<string, unknown>
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+type QuizQuestionsResponse = {
+  ok?: boolean
+  error?: string
+  admin?: AdminSession
+  questions?: QuizQuestion[]
+}
+
+type QuizDraft = {
+  id: string
+  questSlug: string
+  prompt: string
+  answerA: string
+  answerB: string
+  answerC: string
+  answerD: string
+  correctAnswerKey: string
+  explanation: string
+  displayOrder: string
+  active: boolean
+}
+
+type TabKey = 'overview' | 'reviews' | 'users' | 'social' | 'quizzes' | 'logs' | 'notifications' | 'prizes'
 
 const tabs: Array<{ key: TabKey; label: string }> = [
   { key: 'overview', label: 'Overview' },
   { key: 'reviews', label: 'Reviews' },
   { key: 'users', label: 'Users' },
   { key: 'social', label: 'Social accounts' },
+  { key: 'quizzes', label: 'Quiz bank' },
   { key: 'logs', label: 'Verification logs' },
   { key: 'notifications', label: 'Notifications' },
   { key: 'prizes', label: 'Prizes' },
@@ -179,6 +222,39 @@ function prettyJson(value: unknown) {
   }
 }
 
+function createEmptyQuizDraft(): QuizDraft {
+  return {
+    id: '',
+    questSlug: '',
+    prompt: '',
+    answerA: '',
+    answerB: '',
+    answerC: '',
+    answerD: '',
+    correctAnswerKey: 'a',
+    explanation: '',
+    displayOrder: '0',
+    active: true,
+  }
+}
+
+function buildQuizDraft(question: QuizQuestion): QuizDraft {
+  const answerMap = new Map(question.answers.map((answer) => [answer.key, answer.text]))
+  return {
+    id: question.id,
+    questSlug: question.questSlug,
+    prompt: question.prompt,
+    answerA: answerMap.get('a') || '',
+    answerB: answerMap.get('b') || '',
+    answerC: answerMap.get('c') || '',
+    answerD: answerMap.get('d') || '',
+    correctAnswerKey: question.correctAnswerKey || 'a',
+    explanation: question.explanation || '',
+    displayOrder: String(question.displayOrder || 0),
+    active: Boolean(question.active),
+  }
+}
+
 async function apiPost(path: string, body: Record<string, unknown>) {
   const response = await fetch(path, {
     method: 'POST',
@@ -206,6 +282,11 @@ export default function WarAdminPage() {
   const [busy, setBusy] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([])
+  const [quizLoaded, setQuizLoaded] = useState(false)
+  const [quizQuestSlug, setQuizQuestSlug] = useState('')
+  const [quizIncludeInactive, setQuizIncludeInactive] = useState(false)
+  const [quizDraft, setQuizDraft] = useState<QuizDraft>(() => createEmptyQuizDraft())
 
   const loadSession = async () => {
     try {
@@ -241,9 +322,37 @@ export default function WarAdminPage() {
     }
   }
 
+  const loadQuizQuestions = async () => {
+    setBusy('load-quizzes')
+    setError('')
+    try {
+      const params = new URLSearchParams()
+      if (quizQuestSlug.trim()) params.set('questSlug', quizQuestSlug.trim())
+      if (quizIncludeInactive) params.set('includeInactive', 'true')
+      const response = await fetch(`/api/wm-admin-quiz-questions${params.toString() ? `?${params.toString()}` : ''}`, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      })
+      const payload = (await response.json().catch(() => ({}))) as QuizQuestionsResponse
+      if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Quiz questions unavailable.')
+      setQuizQuestions(payload.questions || [])
+      setQuizLoaded(true)
+      if (payload.admin) setAdmin(payload.admin)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Quiz questions unavailable.')
+    } finally {
+      setBusy('')
+    }
+  }
+
   useEffect(() => {
     void loadSession()
   }, [])
+
+  useEffect(() => {
+    if (!admin || activeTab !== 'quizzes') return
+    void loadQuizQuestions()
+  }, [admin, activeTab, quizQuestSlug, quizIncludeInactive])
 
   const login = async (event: FormEvent) => {
     event.preventDefault()
@@ -276,6 +385,9 @@ export default function WarAdminPage() {
       await fetch('/api/wm-admin-auth', { method: 'DELETE', credentials: 'same-origin' })
       setAdmin(null)
       setData(null)
+      setQuizQuestions([])
+      setQuizLoaded(false)
+      setQuizDraft(createEmptyQuizDraft())
       setMessage('Logged out.')
     } finally {
       setBusy('')
@@ -323,6 +435,91 @@ export default function WarAdminPage() {
     if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Notification update failed.')
   })
 
+  const submitQuizQuestion = async (event: FormEvent) => {
+    event.preventDefault()
+    setBusy('save-quiz')
+    setMessage('')
+    setError('')
+    try {
+      const answers = [
+        { key: 'a', text: quizDraft.answerA.trim() },
+        { key: 'b', text: quizDraft.answerB.trim() },
+        { key: 'c', text: quizDraft.answerC.trim() },
+        { key: 'd', text: quizDraft.answerD.trim() },
+      ].filter((answer) => answer.text)
+
+      if (!quizDraft.questSlug.trim()) throw new Error('Quest slug is required.')
+      if (!quizDraft.prompt.trim()) throw new Error('Prompt is required.')
+      if (answers.length < 2) throw new Error('At least two answers are required.')
+      if (!answers.some((answer) => answer.key === quizDraft.correctAnswerKey)) {
+        throw new Error('Correct answer must match one of the filled answers.')
+      }
+
+      const payload = {
+        id: quizDraft.id || undefined,
+        questSlug: quizDraft.questSlug.trim(),
+        prompt: quizDraft.prompt.trim(),
+        answers,
+        correctAnswerKey: quizDraft.correctAnswerKey,
+        explanation: quizDraft.explanation.trim(),
+        displayOrder: Number(quizDraft.displayOrder || 0),
+        active: quizDraft.active,
+      }
+
+      const response = await fetch('/api/wm-admin-quiz-questions', {
+        method: quizDraft.id ? 'PUT' : 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok || !result?.ok) throw new Error(result?.error || 'Quiz question save failed.')
+
+      setMessage(quizDraft.id ? 'Quiz question updated.' : 'Quiz question created.')
+      setQuizDraft(createEmptyQuizDraft())
+      await loadQuizQuestions()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Quiz question save failed.')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const editQuizQuestion = (question: QuizQuestion) => {
+    setQuizDraft(buildQuizDraft(question))
+    setMessage(`Editing ${question.questSlug}.`)
+    setError('')
+  }
+
+  const deactivateQuizQuestion = async (questionId: string) => {
+    setBusy('deactivate-quiz')
+    setMessage('')
+    setError('')
+    try {
+      const response = await fetch('/api/wm-admin-quiz-questions', {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: questionId }),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok || !result?.ok) throw new Error(result?.error || 'Quiz question update failed.')
+      setMessage('Quiz question deactivated.')
+      if (quizDraft.id === questionId) setQuizDraft(createEmptyQuizDraft())
+      await loadQuizQuestions()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Quiz question update failed.')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const resetQuizDraft = () => {
+    setQuizDraft(createEmptyQuizDraft())
+    setMessage('Quiz form reset.')
+    setError('')
+  }
+
   const normalizedQuery = query.trim().toLowerCase()
   const completions = useMemo(() => {
     const rows = data?.completions || []
@@ -351,6 +548,18 @@ export default function WarAdminPage() {
     if (!normalizedQuery) return rows
     return rows.filter((row) => [row.provider, row.username, row.walletAddress, row.displayName].some((value) => String(value || '').toLowerCase().includes(normalizedQuery)))
   }, [data?.socialAccounts, normalizedQuery])
+
+  const filteredQuizQuestions = useMemo(() => {
+    if (!normalizedQuery) return quizQuestions
+    return quizQuestions.filter((question) => [
+      question.questSlug,
+      question.questTitle,
+      question.prompt,
+      question.explanation,
+      question.correctAnswerKey,
+      question.answers.map((answer) => answer.text).join(' '),
+    ].some((value) => String(value || '').toLowerCase().includes(normalizedQuery)))
+  }, [quizQuestions, normalizedQuery])
 
   const summary = data?.summary
 
@@ -488,6 +697,120 @@ export default function WarAdminPage() {
     </section>
   )
 
+  const renderQuizzes = () => (
+    <section className="war-panel">
+      <div className="war-section-head">
+        <div><div className="war-kicker">Docs quiz bank</div><h2>{filteredQuizQuestions.length} questions</h2></div>
+        <p>Create, update, and deactivate quiz questions for War Missions documentation quests without leaving the admin console.</p>
+      </div>
+
+      <div className="war-two-col">
+        <section className="war-panel">
+          <div className="war-section-head">
+            <div><div className="war-kicker">Question editor</div><h3>{quizDraft.id ? 'Edit question' : 'New question'}</h3></div>
+            <p>Use the quest slug from the docs quiz template, then set the prompt, answers, and correct key.</p>
+          </div>
+          <form className="war-admin-login__form" onSubmit={submitQuizQuestion}>
+            <label>
+              <span>Quest slug</span>
+              <input value={quizDraft.questSlug} onChange={(event) => setQuizDraft((current) => ({ ...current, questSlug: event.target.value }))} placeholder="read-the-basics" />
+            </label>
+            <label>
+              <span>Prompt</span>
+              <textarea value={quizDraft.prompt} onChange={(event) => setQuizDraft((current) => ({ ...current, prompt: event.target.value }))} rows={4} />
+            </label>
+            <label>
+              <span>Answer A</span>
+              <input value={quizDraft.answerA} onChange={(event) => setQuizDraft((current) => ({ ...current, answerA: event.target.value }))} />
+            </label>
+            <label>
+              <span>Answer B</span>
+              <input value={quizDraft.answerB} onChange={(event) => setQuizDraft((current) => ({ ...current, answerB: event.target.value }))} />
+            </label>
+            <label>
+              <span>Answer C</span>
+              <input value={quizDraft.answerC} onChange={(event) => setQuizDraft((current) => ({ ...current, answerC: event.target.value }))} />
+            </label>
+            <label>
+              <span>Answer D</span>
+              <input value={quizDraft.answerD} onChange={(event) => setQuizDraft((current) => ({ ...current, answerD: event.target.value }))} />
+            </label>
+            <label>
+              <span>Correct answer</span>
+              <select value={quizDraft.correctAnswerKey} onChange={(event) => setQuizDraft((current) => ({ ...current, correctAnswerKey: event.target.value }))}>
+                <option value="a">A</option>
+                <option value="b">B</option>
+                <option value="c">C</option>
+                <option value="d">D</option>
+              </select>
+            </label>
+            <label>
+              <span>Explanation</span>
+              <textarea value={quizDraft.explanation} onChange={(event) => setQuizDraft((current) => ({ ...current, explanation: event.target.value }))} rows={3} />
+            </label>
+            <label>
+              <span>Display order</span>
+              <input value={quizDraft.displayOrder} onChange={(event) => setQuizDraft((current) => ({ ...current, displayOrder: event.target.value }))} inputMode="numeric" />
+            </label>
+            <label>
+              <span>Status</span>
+              <select value={quizDraft.active ? 'active' : 'inactive'} onChange={(event) => setQuizDraft((current) => ({ ...current, active: event.target.value === 'active' }))}>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+            <div className="war-admin-actions">
+              <button className="war-primary" type="submit" disabled={busy === 'save-quiz'}>{busy === 'save-quiz' ? 'Saving...' : quizDraft.id ? 'Update question' : 'Create question'}</button>
+              <button className="war-secondary" type="button" onClick={resetQuizDraft}>Reset</button>
+            </div>
+          </form>
+        </section>
+
+        <section className="war-panel">
+          <div className="war-section-head">
+            <div><div className="war-kicker">Question filters</div><h3>Review and manage</h3></div>
+            <p>Filter by quest slug, search by text, and keep inactive questions visible when needed.</p>
+          </div>
+          <div className="war-admin-login__form">
+            <label>
+              <span>Quest slug filter</span>
+              <input value={quizQuestSlug} onChange={(event) => setQuizQuestSlug(event.target.value)} placeholder="all docs quizzes" />
+            </label>
+            <label>
+              <span>Include inactive</span>
+              <select value={quizIncludeInactive ? 'true' : 'false'} onChange={(event) => setQuizIncludeInactive(event.target.value === 'true')}>
+                <option value="false">Active only</option>
+                <option value="true">Show inactive too</option>
+              </select>
+            </label>
+            <div className="war-admin-actions">
+              <button className="war-secondary" type="button" onClick={() => void loadQuizQuestions()} disabled={busy === 'load-quizzes'}>{busy === 'load-quizzes' ? 'Refreshing...' : 'Refresh questions'}</button>
+            </div>
+          </div>
+          {!quizLoaded && busy === 'load-quizzes' ? <div className="war-alert">Loading quiz questions...</div> : null}
+          <div className="war-admin-list">
+            {filteredQuizQuestions.map((question) => (
+              <article className="war-admin-row" key={question.id}>
+                <div>
+                  <strong>{question.questTitle || question.questSlug}</strong>
+                  <span>{question.questSlug} | {question.active ? 'active' : 'inactive'} | answer {question.correctAnswerKey.toUpperCase()}</span>
+                  <span>{shortText(question.prompt, 'No prompt', 220)}</span>
+                  <span>{question.answers.map((answer) => `${answer.key.toUpperCase()}: ${answer.text}`).join(' | ')}</span>
+                  {question.explanation ? <span>explanation: {shortText(question.explanation, 'none', 160)}</span> : null}
+                </div>
+                <div className="war-admin-row__actions">
+                  <button type="button" onClick={() => editQuizQuestion(question)}>Edit</button>
+                  <button type="button" onClick={() => void deactivateQuizQuestion(question.id)} disabled={!question.active || busy === 'deactivate-quiz'}>Deactivate</button>
+                </div>
+              </article>
+            ))}
+            {!filteredQuizQuestions.length ? <div className="war-alert">No quiz questions match the current filters yet.</div> : null}
+          </div>
+        </section>
+      </div>
+    </section>
+  )
+
   const renderLogs = () => (
     <section className="war-panel">
       <div className="war-section-head"><div><div className="war-kicker">Audit trail</div><h2>{data?.verificationLogs?.length || 0} latest logs</h2></div></div>
@@ -554,6 +877,7 @@ export default function WarAdminPage() {
     if (activeTab === 'reviews') return renderReviews()
     if (activeTab === 'users') return renderUsers()
     if (activeTab === 'social') return renderSocial()
+    if (activeTab === 'quizzes') return renderQuizzes()
     if (activeTab === 'logs') return renderLogs()
     if (activeTab === 'notifications') return renderNotifications()
     return renderPrizes()
