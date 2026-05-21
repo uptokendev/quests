@@ -247,6 +247,10 @@ function shorten(value: string) {
   return value ? `${value.slice(0, 6)}...${value.slice(-4)}` : ''
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
 function xpLabel(value: number) {
   return `${Number(value || 0).toLocaleString()} XP`
 }
@@ -480,31 +484,52 @@ export default function WarMissionsPage() {
     return data
   }
 
-  const runJoinQuest = async (quest: Quest) => {
-    const provider = quest.verificationType === 'telegram_join' ? 'telegram' : 'discord'
-    const socialStatus = await getSocialStatus()
-    const account = socialStatus.accounts?.find((item) => item.provider === provider)
-    const inviteUrl = provider === 'telegram' ? socialStatus.telegramInviteUrl : socialStatus.discordInviteUrl
-
-    if (inviteUrl) window.open(inviteUrl, '_blank', 'noopener,noreferrer')
-    if (!account) {
-      throw new Error(`${provider === 'telegram' ? 'Telegram' : 'Discord'} account is not connected yet. First connect it in Identity Status once, then come back and press this join quest again so we can verify membership.`)
-    }
-
-    const confirmed = window.confirm(`Join the official ${provider === 'telegram' ? 'Telegram group' : 'Discord server'} in the opened tab. After joining, press OK here to verify your membership.`)
-    if (!confirmed) return
-
+  const checkCommunityMembership = async (provider: 'telegram' | 'discord', questSlug: string) => {
     const endpoint = provider === 'telegram' ? '/api/wm-telegram-member-check' : '/api/wm-discord-member-check'
     const response = await fetch(endpoint, {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ questSlug: quest.slug }),
+      body: JSON.stringify({ questSlug }),
     })
     const data = await response.json().catch(() => ({}))
     if (!response.ok || !data?.ok) throw new Error(data?.error || `${provider} membership check failed.`)
-    if (data.membership?.ok) setActionMessage(`${provider === 'telegram' ? 'Telegram' : 'Discord'} membership confirmed. Quest verified and XP awarded.`)
-    else setActionMessage(`${provider === 'telegram' ? 'Telegram' : 'Discord'} membership was not confirmed yet. Join first, then run the check again.`)
+    return data
+  }
+
+  const runJoinQuest = async (quest: Quest) => {
+    if (!quest.slug) return
+
+    const provider = quest.verificationType === 'telegram_join' ? 'telegram' : 'discord'
+    const label = provider === 'telegram' ? 'Telegram' : 'Discord'
+    const destination = provider === 'telegram' ? 'group' : 'server'
+    const socialStatus = await getSocialStatus()
+    const account = socialStatus.accounts?.find((item) => item.provider === provider)
+    const inviteUrl = provider === 'telegram' ? socialStatus.telegramInviteUrl : socialStatus.discordInviteUrl
+
+    if (!account) {
+      throw new Error(`${label} identity is not connected yet. Connect ${label} once in Identity Status, then return here so the bot can verify the ${destination} membership quest.`)
+    }
+
+    if (inviteUrl) window.open(inviteUrl, '_blank', 'noopener,noreferrer')
+    setActionMessage(`Opened the official ${label} ${destination}. Join it there — we are checking membership automatically.`)
+
+    let lastMessage = ''
+    for (let attempt = 1; attempt <= 12; attempt += 1) {
+      if (attempt > 1) await sleep(attempt === 2 ? 3000 : 5000)
+      const data = await checkCommunityMembership(provider, quest.slug)
+      lastMessage = data.membership?.error || data.result?.reason || ''
+
+      if (data.membership?.ok || data.status === 'verified' || data.result?.status === 'verified' || data.result?.status === 'already_verified') {
+        setActionMessage(`${label} ${destination} membership confirmed. Quest verified and XP awarded.`)
+        await loadMissions()
+        return
+      }
+
+      setActionMessage(`Waiting for ${label} ${destination} membership confirmation... check ${attempt}/12.`)
+    }
+
+    setActionMessage(`${label} membership is not confirmed yet${lastMessage ? `: ${lastMessage}` : ''}. If you just joined, the bot will also keep checking when you refresh the quest page.`)
   }
 
   const linkXForQuest = async (quest: Quest) => {
@@ -566,8 +591,8 @@ export default function WarMissionsPage() {
     if (quest.verificationType === 'docs_quiz') return 'Start quiz'
     if (quest.verificationType === 'recruiter_application_submitted') return 'Apply'
     if (quest.verificationType === 'wallet_connect') return 'Sign'
-    if (quest.verificationType === 'telegram_join') return quest.status === 'pending' || quest.status === 'review' ? 'Check Telegram' : 'Join Telegram'
-    if (quest.verificationType === 'discord_join') return quest.status === 'pending' || quest.status === 'review' ? 'Check Discord' : 'Join Discord'
+    if (quest.verificationType === 'telegram_join') return 'Join & verify TG'
+    if (quest.verificationType === 'discord_join') return 'Join & verify Discord'
     return quest.status === 'review' || quest.status === 'pending' ? 'Update proof' : 'Submit'
   }
 
@@ -647,7 +672,7 @@ export default function WarMissionsPage() {
                     {category.quests.map((quest) => (
                       <div className="quest-row" key={quest.slug || quest.title}>
                         <div><div className="quest-row__title">{quest.title}</div><div className="quest-row__text">{quest.description}</div></div>
-                        <div className="quest-row__meta"><strong>{quest.xp}</strong><span className={`quest-status quest-status--${quest.status}`}>{statusLabel(quest.status)}</span><button type="button" className="quest-action" disabled={quest.status === 'locked' || quest.status === 'verified' || actionBusy === quest.slug} onClick={() => void runQuestAction(quest)}>{actionBusy === quest.slug ? 'Working...' : questActionLabel(quest)}</button></div>
+                        <div className="quest-row__meta"><strong>{quest.xp}</strong><span className={`quest-status quest-status--${quest.status}`}>{statusLabel(quest.status)}</span><button type="button" className="quest-action" disabled={quest.status === 'locked' || quest.status === 'verified' || actionBusy === quest.slug} onClick={() => void runQuestAction(quest)}>{actionBusy === quest.slug ? 'Checking...' : questActionLabel(quest)}</button></div>
                       </div>
                     ))}
                   </div>
