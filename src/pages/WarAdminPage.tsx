@@ -144,6 +144,13 @@ type QuizAnswer = {
   text: string
 }
 
+type QuizTemplate = {
+  id: string
+  slug: string
+  title: string
+  metadata: Record<string, unknown>
+}
+
 type QuizQuestion = {
   id: string
   questTemplateId: string
@@ -164,6 +171,7 @@ type QuizQuestionsResponse = {
   ok?: boolean
   error?: string
   admin?: AdminSession
+  templates?: QuizTemplate[]
   questions?: QuizQuestion[]
 }
 
@@ -246,10 +254,10 @@ function normalizeQuizAnswers(value: unknown): QuizAnswer[] {
     .filter((answer): answer is QuizAnswer => Boolean(answer))
 }
 
-function createEmptyQuizDraft(): QuizDraft {
+function createEmptyQuizDraft(defaultQuestSlug = ''): QuizDraft {
   return {
     id: '',
-    questSlug: '',
+    questSlug: defaultQuestSlug,
     prompt: '',
     answerA: '',
     answerB: '',
@@ -307,6 +315,7 @@ export default function WarAdminPage() {
   const [busy, setBusy] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [quizTemplates, setQuizTemplates] = useState<QuizTemplate[]>([])
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([])
   const [quizLoaded, setQuizLoaded] = useState(false)
   const [quizQuestSlug, setQuizQuestSlug] = useState('')
@@ -360,12 +369,19 @@ export default function WarAdminPage() {
       })
       const payload = (await response.json().catch(() => ({}))) as QuizQuestionsResponse
       if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Quiz questions unavailable.')
+
+      const templates = payload.templates || []
+      setQuizTemplates(templates)
       setQuizQuestions((payload.questions || []).map((question) => ({
         ...question,
         answers: normalizeQuizAnswers(question.answers),
       })))
       setQuizLoaded(true)
       if (payload.admin) setAdmin(payload.admin)
+
+      if (!quizDraft.id && !quizDraft.questSlug && templates[0]?.slug) {
+        setQuizDraft((current) => ({ ...current, questSlug: templates[0].slug }))
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Quiz questions unavailable.')
     } finally {
@@ -413,6 +429,7 @@ export default function WarAdminPage() {
       await fetch('/api/wm-admin-auth', { method: 'DELETE', credentials: 'same-origin' })
       setAdmin(null)
       setData(null)
+      setQuizTemplates([])
       setQuizQuestions([])
       setQuizLoaded(false)
       setQuizDraft(createEmptyQuizDraft())
@@ -476,7 +493,7 @@ export default function WarAdminPage() {
         { key: 'd', text: quizDraft.answerD.trim() },
       ].filter((answer) => answer.text)
 
-      if (!quizDraft.questSlug.trim()) throw new Error('Quest slug is required.')
+      if (!quizDraft.questSlug.trim()) throw new Error('Please choose a quiz.')
       if (!quizDraft.prompt.trim()) throw new Error('Prompt is required.')
       if (answers.length < 2) throw new Error('At least two answers are required.')
       if (!answers.some((answer) => answer.key === quizDraft.correctAnswerKey)) {
@@ -504,7 +521,7 @@ export default function WarAdminPage() {
       if (!response.ok || !result?.ok) throw new Error(result?.error || 'Quiz question save failed.')
 
       setMessage(quizDraft.id ? 'Quiz question updated.' : 'Quiz question created.')
-      setQuizDraft(createEmptyQuizDraft())
+      setQuizDraft(createEmptyQuizDraft(quizDraft.questSlug))
       await loadQuizQuestions()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Quiz question save failed.')
@@ -515,7 +532,7 @@ export default function WarAdminPage() {
 
   const editQuizQuestion = (question: QuizQuestion) => {
     setQuizDraft(buildQuizDraft(question))
-    setMessage(`Editing ${question.questSlug}.`)
+    setMessage(`Editing ${question.questTitle || question.questSlug}.`)
     setError('')
   }
 
@@ -533,7 +550,7 @@ export default function WarAdminPage() {
       const result = await response.json().catch(() => ({}))
       if (!response.ok || !result?.ok) throw new Error(result?.error || 'Quiz question update failed.')
       setMessage('Quiz question deactivated.')
-      if (quizDraft.id === questionId) setQuizDraft(createEmptyQuizDraft())
+      if (quizDraft.id === questionId) setQuizDraft(createEmptyQuizDraft(quizDraft.questSlug))
       await loadQuizQuestions()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Quiz question update failed.')
@@ -543,7 +560,7 @@ export default function WarAdminPage() {
   }
 
   const resetQuizDraft = () => {
-    setQuizDraft(createEmptyQuizDraft())
+    setQuizDraft(createEmptyQuizDraft(quizDraft.questSlug || quizTemplates[0]?.slug || ''))
     setMessage('Quiz form reset.')
     setError('')
   }
@@ -739,14 +756,17 @@ export default function WarAdminPage() {
         <section className="war-panel">
           <div className="war-section-head">
             <div><div className="war-kicker">Question editor</div><h3>{quizDraft.id ? 'Edit question' : 'New question'}</h3></div>
-            <p>Use the quest slug from the docs quiz template, then set the prompt, answers, and correct key.</p>
+            <p>Choose the fixed quiz first, then write the question and answers.</p>
           </div>
           {error && busy !== 'load' ? <div className="war-alert">{error}</div> : null}
           {message ? <div className="war-success">{message}</div> : null}
           <form className="war-admin-login__form" onSubmit={submitQuizQuestion}>
             <label>
-              <span>Quest slug</span>
-              <input value={quizDraft.questSlug} onChange={(event) => setQuizDraft((current) => ({ ...current, questSlug: event.target.value }))} placeholder="read-the-basics" />
+              <span>Quiz</span>
+              <select value={quizDraft.questSlug} onChange={(event) => setQuizDraft((current) => ({ ...current, questSlug: event.target.value }))} disabled={!quizTemplates.length}>
+                {!quizTemplates.length ? <option value="">No quiz templates found</option> : null}
+                {quizTemplates.map((template) => <option key={template.id} value={template.slug}>{template.title}</option>)}
+              </select>
             </label>
             <label>
               <span>Prompt</span>
@@ -793,7 +813,7 @@ export default function WarAdminPage() {
               </select>
             </label>
             <div className="war-admin-actions">
-              <button className="war-primary" type="submit" disabled={busy === 'save-quiz'}>{busy === 'save-quiz' ? 'Saving...' : quizDraft.id ? 'Update question' : 'Create question'}</button>
+              <button className="war-primary" type="submit" disabled={busy === 'save-quiz' || !quizTemplates.length}>{busy === 'save-quiz' ? 'Saving...' : quizDraft.id ? 'Update question' : 'Create question'}</button>
               <button className="war-secondary" type="button" onClick={resetQuizDraft}>Reset</button>
             </div>
           </form>
@@ -802,12 +822,15 @@ export default function WarAdminPage() {
         <section className="war-panel">
           <div className="war-section-head">
             <div><div className="war-kicker">Question filters</div><h3>Review and manage</h3></div>
-            <p>Filter by quest slug, search by text, and keep inactive questions visible when needed.</p>
+            <p>Filter by quiz, search by text, and keep inactive questions visible when needed.</p>
           </div>
           <div className="war-admin-login__form">
             <label>
-              <span>Quest slug filter</span>
-              <input value={quizQuestSlug} onChange={(event) => setQuizQuestSlug(event.target.value)} placeholder="all docs quizzes" />
+              <span>Quiz filter</span>
+              <select value={quizQuestSlug} onChange={(event) => setQuizQuestSlug(event.target.value)}>
+                <option value="">All docs quizzes</option>
+                {quizTemplates.map((template) => <option key={template.id} value={template.slug}>{template.title}</option>)}
+              </select>
             </label>
             <label>
               <span>Include inactive</span>
