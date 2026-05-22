@@ -222,6 +222,30 @@ function prettyJson(value: unknown) {
   }
 }
 
+function normalizeQuizAnswers(value: unknown): QuizAnswer[] {
+  const parsed = typeof value === 'string'
+    ? (() => {
+        try {
+          return JSON.parse(value)
+        } catch {
+          return []
+        }
+      })()
+    : value
+
+  if (!Array.isArray(parsed)) return []
+
+  return parsed
+    .map((answer) => {
+      if (!answer || typeof answer !== 'object') return null
+      const key = String((answer as { key?: unknown }).key || '').trim().toLowerCase()
+      const text = String((answer as { text?: unknown }).text || '').trim()
+      if (!key || !text) return null
+      return { key, text }
+    })
+    .filter((answer): answer is QuizAnswer => Boolean(answer))
+}
+
 function createEmptyQuizDraft(): QuizDraft {
   return {
     id: '',
@@ -239,7 +263,8 @@ function createEmptyQuizDraft(): QuizDraft {
 }
 
 function buildQuizDraft(question: QuizQuestion): QuizDraft {
-  const answerMap = new Map(question.answers.map((answer) => [answer.key, answer.text]))
+  const answers = normalizeQuizAnswers(question.answers)
+  const answerMap = new Map(answers.map((answer) => [answer.key, answer.text]))
   return {
     id: question.id,
     questSlug: question.questSlug,
@@ -335,7 +360,10 @@ export default function WarAdminPage() {
       })
       const payload = (await response.json().catch(() => ({}))) as QuizQuestionsResponse
       if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Quiz questions unavailable.')
-      setQuizQuestions(payload.questions || [])
+      setQuizQuestions((payload.questions || []).map((question) => ({
+        ...question,
+        answers: normalizeQuizAnswers(question.answers),
+      })))
       setQuizLoaded(true)
       if (payload.admin) setAdmin(payload.admin)
     } catch (err) {
@@ -551,14 +579,17 @@ export default function WarAdminPage() {
 
   const filteredQuizQuestions = useMemo(() => {
     if (!normalizedQuery) return quizQuestions
-    return quizQuestions.filter((question) => [
-      question.questSlug,
-      question.questTitle,
-      question.prompt,
-      question.explanation,
-      question.correctAnswerKey,
-      question.answers.map((answer) => answer.text).join(' '),
-    ].some((value) => String(value || '').toLowerCase().includes(normalizedQuery)))
+    return quizQuestions.filter((question) => {
+      const answers = normalizeQuizAnswers(question.answers)
+      return [
+        question.questSlug,
+        question.questTitle,
+        question.prompt,
+        question.explanation,
+        question.correctAnswerKey,
+        answers.map((answer) => answer.text).join(' '),
+      ].some((value) => String(value || '').toLowerCase().includes(normalizedQuery))
+    })
   }, [quizQuestions, normalizedQuery])
 
   const summary = data?.summary
@@ -789,21 +820,24 @@ export default function WarAdminPage() {
           </div>
           {!quizLoaded && busy === 'load-quizzes' ? <div className="war-alert">Loading quiz questions...</div> : null}
           <div className="war-admin-list">
-            {filteredQuizQuestions.map((question) => (
-              <article className="war-admin-row" key={question.id}>
-                <div>
-                  <strong>{question.questTitle || question.questSlug}</strong>
-                  <span>{question.questSlug} | {question.active ? 'active' : 'inactive'} | answer {question.correctAnswerKey.toUpperCase()}</span>
-                  <span>{shortText(question.prompt, 'No prompt', 220)}</span>
-                  <span>{question.answers.map((answer) => `${answer.key.toUpperCase()}: ${answer.text}`).join(' | ')}</span>
-                  {question.explanation ? <span>explanation: {shortText(question.explanation, 'none', 160)}</span> : null}
-                </div>
-                <div className="war-admin-row__actions">
-                  <button type="button" onClick={() => editQuizQuestion(question)}>Edit</button>
-                  <button type="button" onClick={() => void deactivateQuizQuestion(question.id)} disabled={!question.active || busy === 'deactivate-quiz'}>Deactivate</button>
-                </div>
-              </article>
-            ))}
+            {filteredQuizQuestions.map((question) => {
+              const answers = normalizeQuizAnswers(question.answers)
+              return (
+                <article className="war-admin-row" key={question.id}>
+                  <div>
+                    <strong>{question.questTitle || question.questSlug}</strong>
+                    <span>{question.questSlug} | {question.active ? 'active' : 'inactive'} | answer {question.correctAnswerKey.toUpperCase()}</span>
+                    <span>{shortText(question.prompt, 'No prompt', 220)}</span>
+                    <span>{answers.map((answer) => `${answer.key.toUpperCase()}: ${answer.text}`).join(' | ')}</span>
+                    {question.explanation ? <span>explanation: {shortText(question.explanation, 'none', 160)}</span> : null}
+                  </div>
+                  <div className="war-admin-row__actions">
+                    <button type="button" onClick={() => editQuizQuestion(question)}>Edit</button>
+                    <button type="button" onClick={() => void deactivateQuizQuestion(question.id)} disabled={!question.active || busy === 'deactivate-quiz'}>Deactivate</button>
+                  </div>
+                </article>
+              )
+            })}
             {!filteredQuizQuestions.length ? <div className="war-alert">No quiz questions match the current filters yet.</div> : null}
           </div>
         </section>
