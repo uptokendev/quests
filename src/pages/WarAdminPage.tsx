@@ -741,6 +741,8 @@ export default function WarAdminPage() {
             <div><div className="war-kicker">Question editor</div><h3>{quizDraft.id ? 'Edit question' : 'New question'}</h3></div>
             <p>Use the quest slug from the docs quiz template, then set the prompt, answers, and correct key.</p>
           </div>
+          {error && busy !== 'load' ? <div className="war-alert">{error}</div> : null}
+          {message ? <div className="war-success">{message}</div> : null}
           <form className="war-admin-login__form" onSubmit={submitQuizQuestion}>
             <label>
               <span>Quest slug</span>
