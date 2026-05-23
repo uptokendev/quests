@@ -14,6 +14,21 @@ type QuestStatus =
   | 'revoked'
   | 'expired'
 
+type RecruiterQuestState = 'not_started' | 'pending_review' | 'approved' | 'rejected'
+
+type RecruiterStatusPayload = {
+  status: RecruiterQuestState
+  reason: string | null
+  source: string
+  checkedAt: string
+}
+
+type RecruiterStatusResponse = {
+  ok?: boolean
+  error?: string
+  recruiterStatus?: RecruiterStatusPayload
+}
+
 type WarProfile = {
   id: string
   walletAddress: string
@@ -57,8 +72,16 @@ function xpLabel(value: number) {
 export default function RecruiterApplyPage() {
   const [profile, setProfile] = useState<WarProfile | null>(null)
   const [reinforcementQuests, setReinforcementQuests] = useState<ApiQuest[]>([])
+  const [recruiterStatus, setRecruiterStatus] = useState<RecruiterStatusPayload | null>(null)
   const [authing, setAuthing] = useState(false)
   const [error, setError] = useState('')
+
+  const loadRecruiterStatus = async () => {
+    const response = await fetch('/api/wm-recruiter-status', { credentials: 'same-origin', cache: 'no-store' })
+    const data = (await response.json().catch(() => ({}))) as RecruiterStatusResponse
+    if (!response.ok || !data?.ok || !data.recruiterStatus) throw new Error(data.error || 'Recruiter status is not available yet.')
+    setRecruiterStatus(data.recruiterStatus)
+  }
 
   const loadState = async () => {
     setError('')
@@ -69,9 +92,12 @@ export default function RecruiterApplyPage() {
       setProfile(data.profile || null)
       const reinforcements = data.categories?.find((category) => category.slug === 'reinforcements')
       setReinforcementQuests(reinforcements?.quests || [])
+      if (data.profile) await loadRecruiterStatus()
+      else setRecruiterStatus(null)
     } catch (err) {
       setProfile(null)
       setReinforcementQuests([])
+      setRecruiterStatus(null)
       setError(err instanceof Error ? err.message : 'Recruiter data is not available yet.')
     }
   }
@@ -80,9 +106,9 @@ export default function RecruiterApplyPage() {
     void loadState()
   }, [])
 
-  const alreadyApproved = profile?.role === 'recruiter' || profile?.role === 'admin'
+  const alreadyApproved = profile?.role === 'recruiter' || profile?.role === 'admin' || recruiterStatus?.status === 'approved'
   const recruiterQuest = useMemo(
-    () => reinforcementQuests.find((quest) => quest.verificationType === 'recruiter_application_submitted') || null,
+    () => reinforcementQuests.find((quest) => quest.verificationType === 'recruiter_application_accepted') || null,
     [reinforcementQuests],
   )
 
@@ -111,6 +137,14 @@ export default function RecruiterApplyPage() {
     }
   }
 
+  const statusTitle = alreadyApproved
+    ? 'Approved recruiter'
+    : recruiterStatus?.status === 'pending_review'
+      ? 'Application in review'
+      : recruiterStatus?.status === 'rejected'
+        ? 'Needs update'
+        : 'Command Center required'
+
   return (
     <div className="war-missions-page">
       <div className="war-missions-bg" aria-hidden="true" />
@@ -129,7 +163,7 @@ export default function RecruiterApplyPage() {
           <div className="war-hero-copy">
             <div className="war-kicker">Operation: Reinforcements</div>
             <h1>Recruiter Apply</h1>
-            <p>Recruiter applications and referral link management now continue in the MemeWarzone Command Center. War Missions still shows your quest status and approved progression here.</p>
+            <p>Recruiter signup now happens only in the MemeWarzone Command Center. War Missions is the place to come back, check status, and unlock recruiter XP and milestones once approval lands.</p>
             <div className="war-hero-actions">
               <button type="button" className="war-primary" onClick={() => void signIn()} disabled={authing}>
                 {authing ? 'Waiting for signature...' : profile ? 'Wallet connected' : 'Connect wallet'}
@@ -144,9 +178,7 @@ export default function RecruiterApplyPage() {
 
           <aside className="war-status-card">
             <div className="war-status-card__label">Recruiter status</div>
-            <div className="war-status-card__title">
-              {alreadyApproved ? 'Approved recruiter' : recruiterQuest?.status === 'review' ? 'Application in review' : 'Command Center required'}
-            </div>
+            <div className="war-status-card__title">{statusTitle}</div>
             <p>
               {profile
                 ? `Wallet ${shorten(profile.walletAddress)} is connected.`
@@ -154,10 +186,11 @@ export default function RecruiterApplyPage() {
             </p>
             <div className="war-checklist">
               <span className={profile ? 'war-checklist__done' : ''}>Wallet identity</span>
-              <span className={recruiterQuest?.status === 'verified' || recruiterQuest?.status === 'review' ? 'war-checklist__done' : ''}>Application filed</span>
+              <span className={recruiterStatus && recruiterStatus.status !== 'not_started' ? 'war-checklist__done' : ''}>Command Center signup</span>
               <span className={alreadyApproved ? 'war-checklist__done' : ''}>Approved recruiter</span>
-              <span>Referral link + roster</span>
+              <span className={alreadyApproved ? 'war-checklist__done' : ''}>Referral link + roster</span>
             </div>
+            {recruiterStatus?.reason ? <div className="war-alert">{recruiterStatus.reason}</div> : null}
           </aside>
         </section>
 
@@ -168,13 +201,13 @@ export default function RecruiterApplyPage() {
                 <div className="war-kicker">Current flow</div>
                 <h2>What happens next</h2>
               </div>
-              <p>This repo now hands recruiter intake to the dedicated Command Center while keeping mission progress visible in War Missions.</p>
+              <p>This repo now keeps one recruiter source of truth: Command Center handles intake, and War Missions checks status back in from there.</p>
             </div>
             <div className="review-list">
               <span><strong>1. Connect wallet</strong><em>Use the same wallet as War Missions</em></span>
-              <span><strong>2. Open Command Center</strong><em>Application intake and referral management live there</em></span>
-              <span><strong>3. Wait for approval</strong><em>Admin review still syncs back into your recruiter role</em></span>
-              <span><strong>4. Return here for quests</strong><em>Reinforcement milestones still award XP in War Missions</em></span>
+              <span><strong>2. Open Command Center</strong><em>Complete signup there instead of inside quests</em></span>
+              <span><strong>3. Wait for approval</strong><em>{recruiterStatus?.status === 'rejected' ? 'Update the application there, then recheck here' : 'Come back here to recheck after review'}</em></span>
+              <span><strong>4. Unlock recruiter quests</strong><em>Approved status unlocks recruiter XP and milestone progress</em></span>
             </div>
           </section>
 
@@ -184,21 +217,23 @@ export default function RecruiterApplyPage() {
                 <div className="war-kicker">Quest context</div>
                 <h2>Recruiter milestones</h2>
               </div>
-              <p>These reinforcement quests remain the progression backbone after your recruiter profile is active.</p>
+              <p>These reinforcement quests remain the progression backbone after your recruiter approval is confirmed inside War Missions.</p>
             </div>
             <div className="quest-list">
-              {reinforcementQuests.length > 0 ? reinforcementQuests.map((quest) => (
-                <div className="quest-row" key={quest.slug}>
-                  <div>
-                    <div className="quest-row__title">{quest.title}</div>
-                    <div className="quest-row__text">{quest.description || 'Recruiter progression milestone.'}</div>
+              {reinforcementQuests.length > 0 ? reinforcementQuests
+                .filter((quest) => quest.verificationType !== 'recruiter_application_submitted')
+                .map((quest) => (
+                  <div className="quest-row" key={quest.slug}>
+                    <div>
+                      <div className="quest-row__title">{quest.title}</div>
+                      <div className="quest-row__text">{quest.description || 'Recruiter progression milestone.'}</div>
+                    </div>
+                    <div className="quest-row__meta">
+                      <strong>{xpLabel(quest.xpReward)}</strong>
+                      <span className={`quest-status quest-status--${quest.status || 'locked'}`}>{quest.status || 'locked'}</span>
+                    </div>
                   </div>
-                  <div className="quest-row__meta">
-                    <strong>{xpLabel(quest.xpReward)}</strong>
-                    <span className={`quest-status quest-status--${quest.status || 'locked'}`}>{quest.status || 'locked'}</span>
-                  </div>
-                </div>
-              )) : <div className="leaderboard-empty">Recruiter mission data will appear here after the quest API responds.</div>}
+                )) : <div className="leaderboard-empty">Recruiter mission data will appear here after the quest API responds.</div>}
             </div>
           </section>
         </section>
