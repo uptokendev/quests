@@ -1011,3 +1011,458 @@
     width: 100%;
   }
 }
+
+.war-admin-page .war-missions-top {
+  align-items: end;
+}
+
+.war-admin-page .war-missions-nav {
+  gap: 8px;
+}
+
+.war-admin-page .war-missions-nav a {
+  min-height: 36px;
+  padding-inline: 12px;
+}
+
+.war-admin-page .war-missions-shell {
+  padding-top: 18px;
+  gap: 18px;
+}
+
+.war-admin-login {
+  width: min(100%, 560px);
+  margin: 72px auto 0;
+  display: grid;
+  gap: 18px;
+}
+
+.war-admin-login h1,
+.war-admin-hero h1 {
+  margin: 8px 0 0;
+  font-size: clamp(34px, 7vw, 68px);
+  line-height: 0.88;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--wm-green);
+  text-shadow: 0 0 18px rgba(57, 255, 79, 0.2);
+}
+
+.war-admin-login p,
+.war-admin-hero p {
+  margin: 10px 0 0;
+  max-width: 54rem;
+}
+
+.war-admin-login__form {
+  display: grid;
+  gap: 14px;
+}
+
+.war-admin-login__form label {
+  display: grid;
+  gap: 8px;
+}
+
+.war-admin-login__form label > span {
+  color: var(--wm-orange-soft);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.war-admin-login__form input,
+.war-admin-login__form textarea,
+.war-admin-login__form select,
+.war-admin-search {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid rgba(57, 255, 79, 0.34);
+  background:
+    linear-gradient(180deg, rgba(3, 18, 5, 0.96), rgba(1, 9, 2, 0.98)),
+    linear-gradient(90deg, rgba(57, 255, 79, 0.04), transparent 32%, rgba(255, 153, 0, 0.04));
+  color: var(--wm-copy);
+  padding: 12px 14px;
+  font: inherit;
+  border-radius: 0;
+  box-shadow: inset 0 0 0 1px rgba(57, 255, 79, 0.06);
+}
+
+.war-admin-login__form textarea {
+  min-height: 132px;
+  resize: vertical;
+}
+
+.war-admin-login__form input:focus,
+.war-admin-login__form textarea:focus,
+.war-admin-login__form select:focus,
+.war-admin-search:focus {
+  outline: none;
+  border-color: rgba(255, 153, 0, 0.88);
+  box-shadow: 0 0 0 1px rgba(255, 153, 0, 0.3), inset 0 0 0 1px rgba(255, 153, 0, 0.08);
+}
+
+.war-admin-login__form input::placeholder,
+.war-admin-login__form textarea::placeholder,
+.war-admin-search::placeholder {
+  color: rgba(142, 222, 154, 0.48);
+}
+
+.war-admin-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) auto;
+  gap: 20px;
+  align-items: end;
+  overflow: hidden;
+}
+
+.war-admin-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 78% 18%, rgba(255, 153, 0, 0.18), transparent 22%),
+    linear-gradient(90deg, rgba(1, 10, 2, 0.02), rgba(57, 255, 79, 0.03), rgba(1, 10, 2, 0.02));
+  mix-blend-mode: screen;
+}
+
+.war-admin-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.war-admin-toolbar {
+  display: grid;
+  gap: 16px;
+}
+
+.war-admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.war-admin-tab,
+.war-admin-row__actions button,
+.war-admin-actions button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border: 1px solid var(--wm-line);
+  background: rgba(1, 14, 3, 0.84);
+  color: var(--wm-green-dim);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  border-radius: 0;
+  box-shadow: inset 0 0 0 1px rgba(57, 255, 79, 0.06);
+}
+
+.war-admin-tab:hover,
+.war-admin-tab:focus-visible,
+.war-admin-row__actions button:hover,
+.war-admin-row__actions button:focus-visible,
+.war-admin-actions button:hover,
+.war-admin-actions button:focus-visible {
+  outline: none;
+  border-color: rgba(255, 153, 0, 0.88);
+  color: var(--wm-orange);
+  background: rgba(27, 16, 1, 0.86);
+}
+
+.war-admin-tab--active {
+  border-color: rgba(255, 153, 0, 0.88);
+  color: var(--wm-orange-soft);
+  background: linear-gradient(180deg, rgba(33, 20, 2, 0.96), rgba(19, 10, 1, 0.98));
+  box-shadow: inset 0 0 0 1px rgba(255, 153, 0, 0.12), 0 0 18px rgba(255, 153, 0, 0.08);
+}
+
+.war-admin-search {
+  min-height: 52px;
+}
+
+.war-admin-actions,
+.war-admin-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.war-admin-actions {
+  justify-content: flex-start;
+}
+
+.war-admin-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: start;
+}
+
+.war-admin-row > div:first-child {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.war-admin-row strong,
+.war-admin-details strong,
+.war-admin-table__head span {
+  color: var(--wm-copy);
+}
+
+.war-admin-row span {
+  overflow-wrap: anywhere;
+}
+
+.war-admin-row--expanded {
+  border-color: rgba(255, 153, 0, 0.64);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 153, 0, 0.12),
+    0 0 22px rgba(255, 153, 0, 0.08),
+    0 22px 48px rgba(0, 0, 0, 0.4);
+}
+
+.war-admin-details {
+  grid-column: 1 / -1;
+  margin-top: 10px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(57, 255, 79, 0.18);
+  display: grid;
+  gap: 16px;
+}
+
+.war-admin-details__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: end;
+}
+
+.war-admin-details__head h3,
+.war-panel h3 {
+  margin: 8px 0 0;
+  color: var(--wm-copy);
+  font-size: clamp(20px, 3vw, 30px);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.war-admin-details__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.war-admin-details__grid > div,
+.war-admin-details__json-grid > div {
+  padding: 12px;
+  border: 1px solid rgba(57, 255, 79, 0.14);
+  background: rgba(1, 10, 2, 0.58);
+  display: grid;
+  gap: 6px;
+}
+
+.war-admin-details__grid span {
+  overflow-wrap: anywhere;
+}
+
+.war-admin-details__json-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.war-admin-details pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--wm-copy-dim);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.war-admin-table {
+  display: grid;
+  border: 1px solid rgba(57, 255, 79, 0.18);
+  background: rgba(1, 10, 2, 0.54);
+}
+
+.war-admin-table__head,
+.war-admin-table__row {
+  display: grid;
+  grid-template-columns: 1.3fr minmax(120px, 1fr) minmax(120px, 0.9fr) 90px 100px 90px;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+}
+
+.war-admin-table__head {
+  border-bottom: 1px solid rgba(57, 255, 79, 0.18);
+  background: rgba(57, 255, 79, 0.05);
+}
+
+.war-admin-table__row + .war-admin-table__row {
+  border-top: 1px solid rgba(57, 255, 79, 0.1);
+}
+
+.war-admin-table__row span,
+.war-admin-table__head span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.war-admin-table__row span {
+  color: var(--wm-copy-dim);
+}
+
+.war-admin-stats .war-stat__value {
+  font-size: clamp(36px, 5vw, 54px);
+}
+
+.war-admin-page .war-two-col {
+  align-items: start;
+}
+
+.war-admin-page .war-two-col > .war-panel {
+  min-width: 0;
+}
+
+.war-admin-page .war-section-head {
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 420px);
+}
+
+@media (max-width: 1180px) {
+  .war-hero,
+  .war-two-col,
+  .mission-grid,
+  .war-rewards-grid,
+  .war-admin-command-grid,
+  .war-badge-grid,
+  .war-section-head,
+  .war-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .war-route-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .war-section-head p {
+    justify-self: start;
+  }
+
+  .war-admin-row,
+  .war-admin-hero,
+  .war-admin-details__head,
+  .war-admin-details__grid,
+  .war-admin-details__json-grid,
+  .war-admin-table__head,
+  .war-admin-table__row {
+    grid-template-columns: 1fr;
+  }
+
+  .war-admin-row__actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 820px) {
+  .war-missions-top {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .war-missions-nav {
+    justify-content: flex-start;
+  }
+
+  .war-route-strip,
+  .war-badge-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .war-admin-tabs,
+  .war-admin-actions,
+  .war-admin-row__actions {
+    width: 100%;
+  }
+
+  .war-admin-tab,
+  .war-admin-actions button,
+  .war-admin-row__actions button {
+    flex: 1 1 220px;
+  }
+}
+
+@media (max-width: 640px) {
+  .war-missions-top,
+  .war-missions-shell {
+    width: min(100% - 20px, 1320px);
+  }
+
+  .war-missions-brand img {
+    height: 56px;
+  }
+
+  .war-hero-copy,
+  .war-status-card,
+  .war-panel,
+  .war-stat,
+  .mission-card,
+  .war-modal,
+  .war-quiz-card {
+    padding: 16px;
+  }
+
+  .war-hero h1 {
+    font-size: clamp(44px, 18vw, 82px);
+  }
+
+  .war-route-strip,
+  .war-badge-grid,
+  .war-stats,
+  .mission-grid,
+  .war-two-col,
+  .war-rewards-grid,
+  .war-admin-command-grid,
+  .quest-row,
+  .mission-card__top,
+  .war-modal__head,
+  .war-checklist span,
+  .review-list span,
+  .leaderboard-row {
+    grid-template-columns: 1fr;
+  }
+
+  .quest-row__meta,
+  .war-modal__actions {
+    justify-items: stretch;
+  }
+
+  .war-hero-actions,
+  .war-modal__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .war-primary,
+  .war-secondary,
+  .quest-action,
+  .war-admin-tab,
+  .war-admin-actions button,
+  .war-admin-row__actions button {
+    width: 100%;
+  }
+
+  .war-admin-login {
+    margin-top: 32px;
+  }
+}
