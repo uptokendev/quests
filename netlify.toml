@@ -5,6 +5,12 @@
 # Netlify serves the static quest frontend only.
 # Runtime API requests are proxied to the MemeWarzone Railway API.
 [[redirects]]
+  from = "/api/wm-admin-quiz-templates"
+  to = "/.netlify/functions/wm-admin-quiz-templates"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/*"
   to = "https://memewarzonefrontend-production.up.railway.app/api/:splat"
   status = 200
