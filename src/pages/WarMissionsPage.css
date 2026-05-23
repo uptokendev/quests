@@ -567,6 +567,12 @@
   color: var(--wm-gold);
 }
 
+.quest-row__actions {
+  display: grid;
+  gap: 6px;
+  justify-items: stretch;
+}
+
 .quest-status {
   display: inline-flex;
   align-items: center;
@@ -591,6 +597,11 @@
   font-size: 12px;
   font-weight: 900;
   cursor: pointer;
+  text-align: center;
+}
+
+.quest-action--secondary {
+  background: rgba(0, 0, 0, 0.3);
 }
 
 .quest-action:disabled {
@@ -758,26 +769,27 @@
   min-height: 38px;
   padding: 0 12px;
   border-radius: 999px;
-  border: 1px solid rgba(246, 211, 124, 0.2);
+  border: 1px solid rgba(246, 211, 124, 0.16);
   background: rgba(255, 255, 255, 0.04);
   color: rgba(255, 247, 235, 0.82);
-  font-weight: 900;
-  cursor: pointer;
+  font-weight: 800;
 }
 
 .war-modal__copy {
   margin: 16px 0 0;
-  color: rgba(255, 247, 235, 0.7);
+  color: rgba(255, 247, 235, 0.72);
   line-height: 1.6;
 }
 
 .war-field {
+  margin-top: 16px;
   display: grid;
   gap: 8px;
-  margin-top: 16px;
 }
 
-.war-field span {
+.war-field span,
+.war-quiz-card__count,
+.war-quiz-progress {
   color: rgba(246, 211, 124, 0.92);
   font-size: 12px;
   font-weight: 900;
@@ -787,43 +799,33 @@
 .war-field input,
 .war-field textarea {
   width: 100%;
-  border: 1px solid rgba(246, 211, 124, 0.16);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(246, 211, 124, 0.14);
+  background: rgba(255, 255, 255, 0.04);
   color: rgba(255, 247, 235, 0.94);
-  padding: 14px;
-  outline: none;
+  padding: 14px 16px;
+  font: inherit;
 }
 
 .war-field textarea {
   resize: vertical;
-  min-height: 110px;
-}
-
-.war-field input:focus,
-.war-field textarea:focus {
-  border-color: rgba(246, 211, 124, 0.46);
-  box-shadow: 0 0 0 3px rgba(246, 211, 124, 0.08);
 }
 
 .war-modal__actions {
+  margin-top: 18px;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 20px;
 }
 
 .war-quiz-progress {
   margin-top: 16px;
-  color: rgba(246, 211, 124, 0.84);
-  font-size: 13px;
-  font-weight: 900;
 }
 
 .war-quiz-list {
+  margin-top: 16px;
   display: grid;
   gap: 14px;
-  margin-top: 16px;
 }
 
 .war-quiz-card {
@@ -833,360 +835,65 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
-.war-quiz-card__count {
-  color: rgba(246, 211, 124, 0.9);
-  font-size: 12px;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
 .war-quiz-card h3 {
   margin: 10px 0 0;
   font-size: 20px;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
 .war-quiz-options {
+  margin-top: 14px;
   display: grid;
   gap: 10px;
-  margin-top: 14px;
 }
 
 .war-quiz-option {
+  width: 100%;
+  min-height: 54px;
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
-  min-height: 54px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-radius: 16px;
-  border: 1px solid rgba(246, 211, 124, 0.14);
-  background: rgba(255, 255, 255, 0.025);
-  color: rgba(255, 247, 235, 0.82);
+  border: 1px solid rgba(246, 211, 124, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 247, 235, 0.84);
   text-align: left;
-  cursor: pointer;
 }
 
 .war-quiz-option strong {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
-  border: 1px solid rgba(246, 211, 124, 0.2);
-  background: rgba(246, 211, 124, 0.08);
-  font-size: 12px;
+  color: rgba(246, 211, 124, 0.96);
 }
 
 .war-quiz-option span {
-  color: rgba(255, 247, 235, 0.72);
   line-height: 1.45;
 }
 
 .war-quiz-option--active {
-  border-color: rgba(246, 211, 124, 0.42);
-  background: rgba(246, 211, 124, 0.08);
+  border-color: rgba(246, 211, 124, 0.32);
+  background: rgba(246, 211, 124, 0.09);
 }
 
-.war-quiz-option--active strong {
-  background: linear-gradient(90deg, #f6d37c, #ff9b2f);
-  color: #120c07;
-}
-
-.war-admin-page .war-panel h1 {
-  margin: 8px 0 0;
-  font-size: clamp(34px, 6vw, 72px);
-  line-height: 0.95;
-}
-
-.war-admin-login {
-  max-width: 760px;
-  margin: 38px auto 0;
-}
-
-.war-admin-login__form {
-  margin-top: 22px;
-  display: grid;
-  gap: 14px;
-}
-
-.war-admin-login__form label {
-  display: grid;
-  gap: 8px;
-  color: rgba(246, 211, 124, 0.92);
-  font-size: 12px;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.war-admin-login__form input,
-.war-admin-search {
-  min-height: 48px;
-  border-radius: 14px;
-  border: 1px solid rgba(246, 211, 124, 0.18);
-  background: rgba(0, 0, 0, 0.38);
-  color: rgba(255, 247, 235, 0.94);
-  padding: 0 14px;
-  outline: none;
-}
-
-.war-admin-login__form input:focus,
-.war-admin-search:focus {
-  border-color: rgba(246, 211, 124, 0.48);
-  box-shadow: 0 0 0 3px rgba(246, 211, 124, 0.08);
-}
-
-.war-admin-hero {
-  display: flex;
-  gap: 18px;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.war-admin-hero p {
-  margin: 8px 0 0;
-  color: rgba(255, 247, 235, 0.66);
-}
-
-.war-admin-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.war-admin-toolbar {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.war-admin-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.war-admin-tab {
-  min-height: 38px;
-  border: 1px solid rgba(246, 211, 124, 0.16);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.035);
-  color: rgba(255, 247, 235, 0.72);
-  padding: 0 12px;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.war-admin-tab--active {
-  border-color: rgba(246, 211, 124, 0.42);
-  background: rgba(246, 211, 124, 0.13);
-  color: rgba(255, 247, 235, 0.96);
-}
-
-.war-admin-search {
-  width: min(360px, 100%);
-}
-
-.war-admin-stats {
-  margin-top: 0;
-}
-
-.war-admin-command-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.war-admin-command-grid button,
-.war-admin-row button {
-  min-height: 40px;
-  border: 1px solid rgba(246, 211, 124, 0.2);
-  border-radius: 999px;
-  background: rgba(246, 211, 124, 0.11);
-  color: rgba(255, 247, 235, 0.92);
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.war-admin-row {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-}
-
-.war-admin-row--expanded {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  border-color: rgba(246, 211, 124, 0.28);
-  background: rgba(246, 211, 124, 0.055);
-}
-
-.war-admin-row > div {
-  display: grid;
-  gap: 4px;
-}
-
-.war-admin-row button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.war-admin-row__actions {
-  display: flex !important;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px !important;
-}
-
-.war-admin-details {
-  grid-column: 1 / -1;
-  margin-top: 12px;
-  padding: 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(246, 211, 124, 0.18);
-  background: rgba(0, 0, 0, 0.34);
-}
-
-.war-admin-details__head {
-  display: flex !important;
-  gap: 14px !important;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 14px;
-}
-
-.war-admin-details__head h3 {
-  margin: 6px 0 0;
-  font-size: 22px;
-}
-
-.war-admin-details__grid {
-  display: grid !important;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px !important;
-}
-
-.war-admin-details__grid > div {
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid rgba(246, 211, 124, 0.1);
-  background: rgba(255, 255, 255, 0.035);
-}
-
-.war-admin-details strong {
-  color: rgba(246, 211, 124, 0.96);
-  font-size: 12px;
-  text-transform: uppercase;
-}
-
-.war-admin-details span {
-  display: block;
-  margin-top: 4px;
-}
-
-.war-admin-details__json-grid {
-  display: grid !important;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px !important;
-  margin-top: 12px;
-}
-
-.war-admin-details pre {
-  max-height: 320px;
-  overflow: auto;
-  margin: 8px 0 0;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(246, 211, 124, 0.1);
-  background: rgba(0, 0, 0, 0.42);
-  color: rgba(255, 247, 235, 0.78);
-  font-size: 12px;
-  white-space: pre-wrap;
-}
-
-.war-admin-table {
-  overflow: hidden;
-  border-radius: 16px;
-  border: 1px solid rgba(246, 211, 124, 0.12);
-  background: rgba(255, 255, 255, 0.025);
-}
-
-.war-admin-table__head,
-.war-admin-table__row {
-  display: grid;
-  grid-template-columns: 1.3fr 1fr 0.8fr 0.6fr 0.7fr 0.7fr;
-  gap: 10px;
-  align-items: center;
-  min-height: 46px;
-  padding: 0 12px;
-  border-bottom: 1px solid rgba(246, 211, 124, 0.08);
-}
-
-.war-admin-table__head {
-  color: rgba(246, 211, 124, 0.9);
-  font-size: 12px;
-  font-weight: 950;
-  text-transform: uppercase;
-  background: rgba(246, 211, 124, 0.06);
-}
-
-.war-admin-table__row span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: rgba(255, 247, 235, 0.72);
-  font-size: 13px;
-}
-
-@media (max-width: 940px) {
+@media (max-width: 1080px) {
   .war-hero,
   .war-two-col,
   .mission-grid,
   .war-rewards-grid,
-  .war-stats,
-  .war-badge-grid,
-  .war-admin-details__grid,
-  .war-admin-details__json-grid,
-  .war-route-strip {
+  .war-admin-command-grid,
+  .war-badge-grid {
     grid-template-columns: 1fr;
   }
 
-  .war-missions-top,
-  .war-section-head,
-  .war-admin-hero,
-  .war-admin-details__head,
-  .war-admin-toolbar,
-  .war-modal__head,
-  .war-modal__actions {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .war-missions-nav {
-    justify-content: flex-start;
-  }
-
-  .war-admin-command-grid {
+  .war-route-strip,
+  .war-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .war-admin-table__head,
-  .war-admin-table__row {
-    grid-template-columns: 1fr 0.7fr 0.6fr;
-  }
-
-  .war-admin-table__head span:nth-child(2),
-  .war-admin-table__head span:nth-child(5),
-  .war-admin-table__head span:nth-child(6),
-  .war-admin-table__row span:nth-child(2),
-  .war-admin-table__row span:nth-child(5),
-  .war-admin-table__row span:nth-child(6) {
-    display: none;
   }
 }
 
-@media (max-width: 640px) {
-  .war-missions-shell,
-  .war-missions-top {
+@media (max-width: 720px) {
+  .war-missions-top,
+  .war-missions-shell {
     width: min(100% - 24px, 1220px);
   }
 
@@ -1194,36 +901,40 @@
     height: 76px;
   }
 
-  .war-hero-copy,
-  .war-status-card,
-  .war-panel,
-  .war-modal {
-    border-radius: 22px;
-    padding: 18px;
+  .war-route-strip,
+  .war-stats {
+    grid-template-columns: 1fr;
   }
 
+  .war-section-head,
+  .mission-card__top,
   .quest-row,
-  .war-quiz-option {
+  .war-modal__head,
+  .leaderboard-row {
     grid-template-columns: 1fr;
-  }
-
-  .war-admin-row,
-  .war-admin-command-grid {
-    grid-template-columns: 1fr;
+    display: grid;
   }
 
   .quest-row__meta,
-  .war-modal__actions {
+  .mission-card__top span,
+  .war-modal__actions,
+  .leaderboard-row em {
     justify-items: start;
   }
 
-  .war-checklist span,
-  .review-list span {
+  .war-modal__actions,
+  .war-hero-actions {
     flex-direction: column;
+    align-items: stretch;
   }
 
-  .war-checklist span em,
-  .review-list span em {
-    text-align: left;
+  .quest-row__actions {
+    width: 100%;
+  }
+
+  .quest-action,
+  .war-primary,
+  .war-secondary {
+    width: 100%;
   }
 }
