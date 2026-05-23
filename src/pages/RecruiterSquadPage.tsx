@@ -14,6 +14,21 @@ type QuestStatus =
   | 'revoked'
   | 'expired'
 
+type RecruiterQuestState = 'not_started' | 'pending_review' | 'approved' | 'rejected'
+
+type RecruiterStatusPayload = {
+  status: RecruiterQuestState
+  reason: string | null
+  source: string
+  checkedAt: string
+}
+
+type RecruiterStatusResponse = {
+  ok?: boolean
+  error?: string
+  recruiterStatus?: RecruiterStatusPayload
+}
+
 type WarProfile = {
   id: string
   walletAddress: string
@@ -68,8 +83,16 @@ function statusText(status: QuestStatus | null | undefined) {
 export default function RecruiterSquadPage() {
   const [profile, setProfile] = useState<WarProfile | null>(null)
   const [reinforcements, setReinforcements] = useState<ApiCategory | null>(null)
+  const [recruiterStatus, setRecruiterStatus] = useState<RecruiterStatusPayload | null>(null)
   const [authing, setAuthing] = useState(false)
   const [error, setError] = useState('')
+
+  const loadRecruiterStatus = async () => {
+    const response = await fetch('/api/wm-recruiter-status', { credentials: 'same-origin', cache: 'no-store' })
+    const data = (await response.json().catch(() => ({}))) as RecruiterStatusResponse
+    if (!response.ok || !data?.ok || !data.recruiterStatus) throw new Error(data.error || 'Recruiter status is not available yet.')
+    setRecruiterStatus(data.recruiterStatus)
+  }
 
   const loadState = async () => {
     setError('')
@@ -79,9 +102,12 @@ export default function RecruiterSquadPage() {
       if (!response.ok || !data?.ok) throw new Error(data.error || 'Squad data is not available yet.')
       setProfile(data.profile || null)
       setReinforcements(data.categories?.find((category) => category.slug === 'reinforcements') || null)
+      if (data.profile) await loadRecruiterStatus()
+      else setRecruiterStatus(null)
     } catch (err) {
       setProfile(null)
       setReinforcements(null)
+      setRecruiterStatus(null)
       setError(err instanceof Error ? err.message : 'Squad data is not available yet.')
     }
   }
@@ -116,12 +142,13 @@ export default function RecruiterSquadPage() {
   }
 
   const approvedRole = profile?.role === 'recruiter' || profile?.role === 'admin'
+  const recruiterApproved = approvedRole || recruiterStatus?.status === 'approved'
   const applicationQuest = useMemo(
-    () => reinforcements?.quests.find((quest) => quest.verificationType === 'recruiter_application_submitted') || null,
+    () => reinforcements?.quests.find((quest) => quest.verificationType === 'recruiter_application_accepted') || null,
     [reinforcements],
   )
   const referralMilestones = useMemo(
-    () => (reinforcements?.quests || []).filter((quest) => quest.verificationType !== 'recruiter_application_submitted'),
+    () => (reinforcements?.quests || []).filter((quest) => !['recruiter_application_submitted', 'recruiter_application_accepted'].includes(quest.verificationType)),
     [reinforcements],
   )
   const completedMilestones = useMemo(
@@ -138,11 +165,21 @@ export default function RecruiterSquadPage() {
   }, [profile])
 
   const stats = [
-    { label: 'Role', value: profile ? profile.role : 'guest', help: approvedRole ? 'Recruiter tools unlocked' : 'Approval required' },
+    { label: 'Role', value: profile ? profile.role : 'guest', help: recruiterApproved ? 'Recruiter tools unlocked' : 'Approval required' },
     { label: 'XP', value: profile ? profile.xpTotal.toLocaleString() : '0', help: 'War Missions ledger' },
     { label: 'Milestones cleared', value: String(completedMilestones), help: `${referralMilestones.length} reinforcement steps tracked` },
     { label: 'Start Here done', value: String(onboardingComplete), help: 'Your own onboarding progress' },
   ]
+
+  const statusTitle = !profile
+    ? 'Wallet required'
+    : recruiterApproved
+      ? approvedRole ? 'Recruiter lane active' : 'Approved in Command Center'
+      : recruiterStatus?.status === 'pending_review'
+        ? 'Approval pending'
+        : recruiterStatus?.status === 'rejected'
+          ? 'Needs update'
+          : 'Apply first'
 
   return (
     <div className="war-missions-page">
@@ -175,9 +212,7 @@ export default function RecruiterSquadPage() {
 
           <aside className="war-status-card">
             <div className="war-status-card__label">Squad readiness</div>
-            <div className="war-status-card__title">
-              {!profile ? 'Wallet required' : approvedRole ? 'Recruiter lane active' : applicationQuest?.status === 'review' ? 'Approval pending' : 'Apply first'}
-            </div>
+            <div className="war-status-card__title">{statusTitle}</div>
             <p>
               {!profile
                 ? 'Connect your wallet to sync recruiter identity and reinforcement milestones.'
@@ -185,10 +220,11 @@ export default function RecruiterSquadPage() {
             </p>
             <div className="war-checklist">
               <span className={profile ? 'war-checklist__done' : ''}><strong>Wallet linked</strong><em>Required for all recruiter sync</em></span>
-              <span className={applicationQuest?.status === 'review' || applicationQuest?.status === 'verified' ? 'war-checklist__done' : ''}><strong>Application tracked</strong><em>Visible in recruiter quest lane</em></span>
-              <span className={approvedRole ? 'war-checklist__done' : ''}><strong>Recruiter approved</strong><em>Unlocks referral link assignment</em></span>
+              <span className={recruiterStatus && recruiterStatus.status !== 'not_started' ? 'war-checklist__done' : ''}><strong>Command Center signup</strong><em>Tracked from the shared recruiter backend</em></span>
+              <span className={recruiterApproved || applicationQuest?.status === 'verified' ? 'war-checklist__done' : ''}><strong>Recruiter approved</strong><em>Unlocks referral link assignment</em></span>
               <span className={approvedRole ? 'war-checklist__done' : ''}><strong>Command Center access</strong><em>Referral links and roster live there</em></span>
             </div>
+            {recruiterStatus?.reason ? <div className="war-alert">{recruiterStatus.reason}</div> : null}
           </aside>
         </section>
 
