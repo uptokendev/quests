@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import AdminTabPage from './pages/AdminTabPage'
 import SocialIdentityPanel from './components/SocialIdentityPanel'
 import RecruiterApplyPage from './pages/RecruiterApplyPage'
 import RecruiterPortalPage from './pages/RecruiterPortalPage'
@@ -17,14 +18,14 @@ export default function App() {
         <Route path="/recruiter/apply" element={<RecruiterApplyPage />} />
         <Route path="/recruiter/portal" element={<RecruiterPortalPage />} />
         <Route path="/admin/missions" element={<WarAdminPage />} />
-        <Route path="/admin/missions/:section" element={<WarAdminPage />} />
-        <Route path="/admin/notifications" element={<WarAdminPage />} />
-        <Route path="/admin/recruiter-applications" element={<WarAdminPage />} />
-        <Route path="/admin/recruits" element={<WarAdminPage />} />
-        <Route path="/admin/social-checks" element={<WarAdminPage />} />
-        <Route path="/admin/risk" element={<WarAdminPage />} />
-        <Route path="/admin/leaderboards" element={<WarAdminPage />} />
-        <Route path="/admin/prizes" element={<WarAdminPage />} />
+        <Route path="/admin/missions/:section" element={<AdminTabPage />} />
+        <Route path="/admin/notifications" element={<AdminTabPage defaultTab="notifications" />} />
+        <Route path="/admin/recruiter-applications" element={<AdminTabPage defaultTab="recruiters" />} />
+        <Route path="/admin/recruits" element={<AdminTabPage defaultTab="users" />} />
+        <Route path="/admin/social-checks" element={<AdminTabPage defaultTab="social" />} />
+        <Route path="/admin/risk" element={<AdminTabPage defaultTab="users" />} />
+        <Route path="/admin/leaderboards" element={<AdminTabPage defaultTab="overview" />} />
+        <Route path="/admin/prizes" element={<AdminTabPage defaultTab="prizes" />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <SocialIdentityPanel />
