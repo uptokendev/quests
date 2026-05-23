@@ -421,7 +421,15 @@ async function connectDetectedWallet(wallet: DetectedWallet) {
   window.localStorage.removeItem(DISCONNECTED_KEY)
   window.localStorage.removeItem(LEGACY_CONNECTED_KEY)
 
-  return { provider, signer, address, chainId: Number(network.chainId), walletType: wallet.id }
+  return {
+    ok: true as const,
+    error: null,
+    provider,
+    signer,
+    address,
+    chainId: Number(network.chainId),
+    walletType: wallet.id,
+  }
 }
 
 export async function connectWallet(wallet?: WalletType) {
