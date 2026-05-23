@@ -1,12 +1,7 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { connectWallet } from '../lib/wallet'
 import './WarMissionsPage.css'
-
-type RecruiterApplyResponse = {
-  ok?: boolean
-  error?: string
-}
 
 type QuestStatus =
   | 'ready'
@@ -48,21 +43,8 @@ type WarMissionsResponse = {
   categories?: ApiCategory[]
 }
 
-type FormState = {
-  xUsername: string
-  telegramUsername: string
-  discordUsername: string
-  expectedRecruits: string
-  motivation: string
-}
-
-const initialForm: FormState = {
-  xUsername: '',
-  telegramUsername: '',
-  discordUsername: '',
-  expectedRecruits: '',
-  motivation: '',
-}
+const DEFAULT_COMMAND_CENTER_URL = 'https://memewarzonefrontend-production.up.railway.app/command/recruiter'
+const commandCenterUrl = String(import.meta.env.VITE_COMMAND_CENTER_RECRUITER_URL || DEFAULT_COMMAND_CENTER_URL).trim()
 
 function shorten(value: string) {
   return value ? `${value.slice(0, 6)}...${value.slice(-4)}` : ''
@@ -73,18 +55,12 @@ function xpLabel(value: number) {
 }
 
 export default function RecruiterApplyPage() {
-  const navigate = useNavigate()
   const [profile, setProfile] = useState<WarProfile | null>(null)
   const [reinforcementQuests, setReinforcementQuests] = useState<ApiQuest[]>([])
-  const [form, setForm] = useState<FormState>(initialForm)
-  const [loading, setLoading] = useState(true)
   const [authing, setAuthing] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
   const loadState = async () => {
-    setLoading(true)
     setError('')
     try {
       const response = await fetch('/api/wm-quests-list', { credentials: 'same-origin', cache: 'no-store' })
@@ -97,8 +73,6 @@ export default function RecruiterApplyPage() {
       setProfile(null)
       setReinforcementQuests([])
       setError(err instanceof Error ? err.message : 'Recruiter data is not available yet.')
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -137,41 +111,6 @@ export default function RecruiterApplyPage() {
     }
   }
 
-  const submitApplication = async (event: FormEvent) => {
-    event.preventDefault()
-    if (!profile) {
-      await signIn()
-      return
-    }
-
-    setSubmitting(true)
-    setMessage('')
-    setError('')
-    try {
-      const response = await fetch('/api/wm-recruiter-apply', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          xUsername: form.xUsername.trim(),
-          telegramUsername: form.telegramUsername.trim(),
-          discordUsername: form.discordUsername.trim(),
-          expectedRecruits: form.expectedRecruits ? Number(form.expectedRecruits) : undefined,
-          motivation: form.motivation.trim(),
-        }),
-      })
-      const data = (await response.json().catch(() => ({}))) as RecruiterApplyResponse
-      if (!response.ok || !data?.ok) throw new Error(data?.error || 'Recruiter application failed.')
-      setForm(initialForm)
-      setMessage('Recruiter application submitted. Command review will pick it up from the admin queue.')
-      await loadState()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Recruiter application failed.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   return (
     <div className="war-missions-page">
       <div className="war-missions-bg" aria-hidden="true" />
@@ -190,34 +129,34 @@ export default function RecruiterApplyPage() {
           <div className="war-hero-copy">
             <div className="war-kicker">Operation: Reinforcements</div>
             <h1>Recruiter Apply</h1>
-            <p>Submit one clean recruiter application inside War Missions. Once approved, your wallet can move into the recruiter lane and start building verified squads.</p>
+            <p>Recruiter applications and referral link management now continue in the MemeWarzone Command Center. War Missions still shows your quest status and approved progression here.</p>
             <div className="war-hero-actions">
               <button type="button" className="war-primary" onClick={() => void signIn()} disabled={authing}>
                 {authing ? 'Waiting for signature...' : profile ? 'Wallet connected' : 'Connect wallet'}
               </button>
-              <button type="button" className="war-secondary" onClick={() => navigate('/recruiter/portal')}>
-                Open portal
-              </button>
+              <a href={commandCenterUrl} target="_blank" rel="noreferrer" className="war-secondary">
+                Open Command Center
+              </a>
+              {alreadyApproved ? <Link to="/profile/squad" className="war-secondary">Open squad view</Link> : null}
             </div>
             {error ? <div className="war-alert">{error}</div> : null}
-            {message ? <div className="war-success">{message}</div> : null}
           </div>
 
           <aside className="war-status-card">
             <div className="war-status-card__label">Recruiter status</div>
             <div className="war-status-card__title">
-              {alreadyApproved ? 'Approved recruiter' : recruiterQuest?.status === 'review' ? 'Application in review' : 'Application required'}
+              {alreadyApproved ? 'Approved recruiter' : recruiterQuest?.status === 'review' ? 'Application in review' : 'Command Center required'}
             </div>
             <p>
               {profile
                 ? `Wallet ${shorten(profile.walletAddress)} is connected.`
-                : 'Connect your wallet first so the recruiter application can attach to your War Missions identity.'}
+                : 'Connect your wallet first so recruiter status follows the same War Missions identity.'}
             </p>
             <div className="war-checklist">
               <span className={profile ? 'war-checklist__done' : ''}>Wallet identity</span>
-              <span className={recruiterQuest?.status === 'verified' ? 'war-checklist__done' : ''}>Application approval</span>
-              <span>Referral milestones</span>
-              <span>Verified recruits only</span>
+              <span className={recruiterQuest?.status === 'verified' || recruiterQuest?.status === 'review' ? 'war-checklist__done' : ''}>Application filed</span>
+              <span className={alreadyApproved ? 'war-checklist__done' : ''}>Approved recruiter</span>
+              <span>Referral link + roster</span>
             </div>
           </aside>
         </section>
@@ -226,44 +165,17 @@ export default function RecruiterApplyPage() {
           <section className="war-panel">
             <div className="war-section-head">
               <div>
-                <div className="war-kicker">Application form</div>
-                <h2>Recruiter intake</h2>
+                <div className="war-kicker">Current flow</div>
+                <h2>What happens next</h2>
               </div>
-              <p>This form feeds the same recruiter review queue the admin console already reads.</p>
+              <p>This repo now hands recruiter intake to the dedicated Command Center while keeping mission progress visible in War Missions.</p>
             </div>
-
-            {alreadyApproved ? (
-              <div className="war-success">This wallet already has recruiter access. Use the portal to track mission progress.</div>
-            ) : null}
-
-            <form className="war-admin-login__form" onSubmit={submitApplication}>
-              <label>
-                <span>X username</span>
-                <input value={form.xUsername} onChange={(event) => setForm((current) => ({ ...current, xUsername: event.target.value }))} placeholder="@username" />
-              </label>
-              <label>
-                <span>Telegram username</span>
-                <input value={form.telegramUsername} onChange={(event) => setForm((current) => ({ ...current, telegramUsername: event.target.value }))} placeholder="@username" />
-              </label>
-              <label>
-                <span>Discord username</span>
-                <input value={form.discordUsername} onChange={(event) => setForm((current) => ({ ...current, discordUsername: event.target.value }))} placeholder="username" />
-              </label>
-              <label>
-                <span>Expected recruits in first push</span>
-                <input value={form.expectedRecruits} onChange={(event) => setForm((current) => ({ ...current, expectedRecruits: event.target.value }))} inputMode="numeric" placeholder="10" />
-              </label>
-              <label>
-                <span>Why you should be approved</span>
-                <textarea value={form.motivation} onChange={(event) => setForm((current) => ({ ...current, motivation: event.target.value }))} rows={6} />
-              </label>
-              <div className="war-admin-actions">
-                <button className="war-primary" type="submit" disabled={submitting || alreadyApproved || loading}>
-                  {submitting ? 'Submitting...' : 'Submit recruiter application'}
-                </button>
-                <Link className="war-secondary" to="/missions/reinforcements">Back to reinforcements</Link>
-              </div>
-            </form>
+            <div className="review-list">
+              <span><strong>1. Connect wallet</strong><em>Use the same wallet as War Missions</em></span>
+              <span><strong>2. Open Command Center</strong><em>Application intake and referral management live there</em></span>
+              <span><strong>3. Wait for approval</strong><em>Admin review still syncs back into your recruiter role</em></span>
+              <span><strong>4. Return here for quests</strong><em>Reinforcement milestones still award XP in War Missions</em></span>
+            </div>
           </section>
 
           <section className="war-panel war-panel--tight">
@@ -272,7 +184,7 @@ export default function RecruiterApplyPage() {
                 <div className="war-kicker">Quest context</div>
                 <h2>Recruiter milestones</h2>
               </div>
-              <p>These are the reinforcement steps already wired into War Missions.</p>
+              <p>These reinforcement quests remain the progression backbone after your recruiter profile is active.</p>
             </div>
             <div className="quest-list">
               {reinforcementQuests.length > 0 ? reinforcementQuests.map((quest) => (
