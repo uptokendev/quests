@@ -60,12 +60,10 @@ function xpLabel(value: number) {
 export default function RecruiterPortalPage() {
   const [profile, setProfile] = useState<WarProfile | null>(null)
   const [reinforcements, setReinforcements] = useState<ApiCategory | null>(null)
-  const [loading, setLoading] = useState(true)
   const [authing, setAuthing] = useState(false)
   const [error, setError] = useState('')
 
   const loadState = async () => {
-    setLoading(true)
     setError('')
     try {
       const response = await fetch('/api/wm-quests-list', { credentials: 'same-origin', cache: 'no-store' })
@@ -77,8 +75,6 @@ export default function RecruiterPortalPage() {
       setProfile(null)
       setReinforcements(null)
       setError(err instanceof Error ? err.message : 'Recruiter portal data is not available yet.')
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -219,24 +215,24 @@ export default function RecruiterPortalPage() {
           <section className="war-panel">
             <div className="war-section-head">
               <div>
-                <div className="war-kicker">Squad growth</div>
-                <h2>Referral milestones</h2>
+                <div className="war-kicker">Milestones</div>
+                <h2>Referral ladder</h2>
               </div>
-              <p>Verified recruits are what move the recruiter questline forward.</p>
+              <p>These milestones are already present in the reinforcement category and can be reviewed here even before recruit data lands.</p>
             </div>
-            <div className="war-admin-list">
-              {referralMilestones.length > 0 ? referralMilestones.map((quest) => (
-                <article className="war-admin-row" key={quest.slug}>
+            <div className="quest-list">
+              {referralMilestones.length ? referralMilestones.map((quest) => (
+                <div className="quest-row" key={quest.slug}>
                   <div>
-                    <strong>{quest.title}</strong>
-                    <span>{quest.description || 'Recruiter squad objective.'}</span>
+                    <div className="quest-row__title">{quest.title}</div>
+                    <div className="quest-row__text">{quest.description || 'Recruiter milestone.'}</div>
                   </div>
-                  <div className="war-admin-row__actions">
+                  <div className="quest-row__meta">
                     <strong>{xpLabel(quest.xpReward)}</strong>
                     <span className={`quest-status quest-status--${quest.status || 'locked'}`}>{quest.status || 'locked'}</span>
                   </div>
-                </article>
-              )) : <div className="leaderboard-empty">Referral milestones will populate here once the reinforcement quest feed is available.</div>}
+                </div>
+              )) : <div className="leaderboard-empty">No reinforcement milestones were returned yet.</div>}
             </div>
           </section>
         </section>
