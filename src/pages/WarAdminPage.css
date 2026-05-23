@@ -1,0 +1,376 @@
+.war-admin-page {
+  --wm-admin-bg: #0d1014;
+  --wm-admin-bg-2: #171b21;
+  --wm-admin-panel: rgba(23, 26, 31, 0.94);
+  --wm-admin-panel-soft: rgba(18, 20, 25, 0.92);
+  --wm-admin-panel-strong: rgba(12, 14, 18, 0.98);
+  --wm-admin-line: rgba(255, 153, 0, 0.28);
+  --wm-admin-line-strong: rgba(255, 184, 77, 0.5);
+  --wm-admin-copy: rgba(243, 238, 229, 0.92);
+  --wm-admin-copy-dim: rgba(199, 189, 171, 0.72);
+  --wm-admin-accent: #ff9900;
+  --wm-admin-accent-soft: #ffc670;
+  --wm-admin-danger: #ff7b5c;
+}
+
+.war-admin-page.war-missions-page {
+  color: var(--wm-admin-copy);
+  background:
+    radial-gradient(circle at top left, rgba(255, 153, 0, 0.12), transparent 28%),
+    radial-gradient(circle at 82% 18%, rgba(255, 209, 138, 0.08), transparent 18%),
+    linear-gradient(180deg, #0b0e12 0%, #11151b 40%, #090b0e 100%);
+}
+
+.war-admin-page.war-missions-page::before {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 30px 30px;
+  opacity: 0.35;
+}
+
+.war-admin-page.war-missions-page::after {
+  background:
+    linear-gradient(180deg, rgba(255, 153, 0, 0.06), transparent 26%),
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.03), transparent);
+  opacity: 0.5;
+}
+
+.war-admin-page .war-missions-bg {
+  opacity: 0.08;
+  filter: saturate(0.4) brightness(0.7);
+}
+
+.war-admin-page .war-missions-overlay {
+  background:
+    radial-gradient(circle at 15% 0%, rgba(255, 153, 0, 0.14), transparent 24%),
+    radial-gradient(circle at 100% 10%, rgba(255, 204, 122, 0.08), transparent 22%);
+}
+
+.war-admin-page .war-missions-brand,
+.war-admin-page .war-missions-nav a,
+.war-admin-page .war-panel,
+.war-admin-page .war-stat,
+.war-admin-page .war-admin-row,
+.war-admin-page .war-modal,
+.war-admin-page .war-quiz-card,
+.war-admin-page .war-checklist span,
+.war-admin-page .review-list span,
+.war-admin-page .war-status-card {
+  border-radius: 22px;
+}
+
+.war-admin-page .war-missions-brand,
+.war-admin-page .war-missions-nav a,
+.war-admin-page .war-panel,
+.war-admin-page .war-stat,
+.war-admin-page .war-admin-row,
+.war-admin-page .war-modal,
+.war-admin-page .war-quiz-card,
+.war-admin-page .war-checklist span,
+.war-admin-page .review-list span,
+.war-admin-page .war-status-card,
+.war-admin-page .war-admin-table,
+.war-admin-page .war-admin-details__grid > div,
+.war-admin-page .war-admin-details__json-grid > div {
+  border-color: var(--wm-admin-line);
+  background:
+    linear-gradient(180deg, rgba(24, 27, 33, 0.96), rgba(12, 14, 18, 0.98)),
+    linear-gradient(90deg, rgba(255, 153, 0, 0.03), transparent 32%, rgba(255, 255, 255, 0.03));
+  box-shadow:
+    0 28px 80px -40px rgba(0, 0, 0, 0.95),
+    0 0 0 1px rgba(255, 153, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.war-admin-page .war-panel::before,
+.war-admin-page .war-stat::before,
+.war-admin-page .war-admin-row::before,
+.war-admin-page .war-modal::before,
+.war-admin-page .war-quiz-card::before,
+.war-admin-page .war-checklist span::before,
+.war-admin-page .review-list span::before,
+.war-admin-page .war-status-card::before,
+.war-admin-page .war-hero-copy::before {
+  display: none;
+}
+
+.war-admin-page .war-kicker,
+.war-admin-page .war-stat__label,
+.war-admin-page .war-admin-login__form label > span,
+.war-admin-page .war-admin-table__head span,
+.war-admin-page .war-quiz-card__count,
+.war-admin-page .war-quiz-progress,
+.war-admin-page .war-field span {
+  color: var(--wm-admin-accent-soft);
+  letter-spacing: 0.18em;
+}
+
+.war-admin-page .war-admin-login h1,
+.war-admin-page .war-admin-hero h1,
+.war-admin-page .war-section-head h2,
+.war-admin-page .war-panel h2,
+.war-admin-page .war-admin-details__head h3,
+.war-admin-page .war-panel h3,
+.war-admin-page .war-stat__value {
+  color: #fff3dd;
+  text-shadow: none;
+}
+
+.war-admin-page .war-admin-login p,
+.war-admin-page .war-admin-hero p,
+.war-admin-page .war-panel p,
+.war-admin-page .war-admin-row span,
+.war-admin-page .war-admin-details pre,
+.war-admin-page .war-stat__help {
+  color: var(--wm-admin-copy-dim);
+}
+
+.war-admin-page .war-admin-login {
+  width: min(100%, 620px);
+  margin-top: 52px;
+}
+
+.war-admin-page .war-admin-hero {
+  min-height: 0;
+  padding: 28px;
+  border: 1px solid var(--wm-admin-line);
+  background:
+    radial-gradient(circle at top right, rgba(255, 153, 0, 0.16), transparent 24%),
+    linear-gradient(180deg, rgba(24, 27, 33, 0.98), rgba(13, 16, 20, 0.98));
+}
+
+.war-admin-page .war-admin-hero::after {
+  background:
+    radial-gradient(circle at 86% 16%, rgba(255, 178, 56, 0.22), transparent 18%),
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.03), transparent);
+}
+
+.war-admin-page .war-admin-tabs {
+  gap: 12px;
+}
+
+.war-admin-page .war-admin-tab,
+.war-admin-page .war-admin-row__actions button,
+.war-admin-page .war-admin-actions button,
+.war-admin-page .war-primary,
+.war-admin-page .war-secondary,
+.war-admin-page .war-modal__close,
+.war-admin-page .quest-action {
+  min-height: 42px;
+  border-radius: 999px;
+  border-color: rgba(255, 153, 0, 0.26);
+  background: linear-gradient(180deg, rgba(34, 38, 46, 0.96), rgba(18, 21, 27, 0.98));
+  color: var(--wm-admin-copy);
+  letter-spacing: 0.12em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.war-admin-page .war-admin-tab:hover,
+.war-admin-page .war-admin-tab:focus-visible,
+.war-admin-page .war-admin-row__actions button:hover,
+.war-admin-page .war-admin-row__actions button:focus-visible,
+.war-admin-page .war-admin-actions button:hover,
+.war-admin-page .war-admin-actions button:focus-visible,
+.war-admin-page .war-primary:hover,
+.war-admin-page .war-primary:focus-visible,
+.war-admin-page .war-secondary:hover,
+.war-admin-page .war-secondary:focus-visible,
+.war-admin-page .war-modal__close:hover,
+.war-admin-page .war-modal__close:focus-visible,
+.war-admin-page .quest-action:hover,
+.war-admin-page .quest-action:focus-visible {
+  border-color: rgba(255, 184, 77, 0.58);
+  color: #fff7ea;
+  background: linear-gradient(180deg, rgba(48, 34, 15, 0.98), rgba(28, 20, 10, 0.98));
+}
+
+.war-admin-page .war-admin-tab--active,
+.war-admin-page .war-primary {
+  color: #281508;
+  border-color: rgba(255, 198, 112, 0.82);
+  background: linear-gradient(180deg, #ffbf60, #ff9800);
+  box-shadow:
+    0 10px 24px -18px rgba(255, 153, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.war-admin-page .war-primary:disabled {
+  opacity: 0.78;
+}
+
+.war-admin-page .war-secondary,
+.war-admin-page .war-modal__close,
+.war-admin-page .quest-action--secondary {
+  color: var(--wm-admin-copy-dim);
+}
+
+.war-admin-page .war-admin-search,
+.war-admin-page .war-admin-login__form input,
+.war-admin-page .war-admin-login__form textarea,
+.war-admin-page .war-admin-login__form select,
+.war-admin-page .war-field input,
+.war-admin-page .war-field textarea {
+  border-radius: 16px;
+  border-color: rgba(255, 153, 0, 0.2);
+  background: linear-gradient(180deg, rgba(15, 17, 22, 0.98), rgba(9, 11, 15, 0.98));
+  color: var(--wm-admin-copy);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.war-admin-page .war-admin-search::placeholder,
+.war-admin-page .war-admin-login__form input::placeholder,
+.war-admin-page .war-admin-login__form textarea::placeholder,
+.war-admin-page .war-field input::placeholder,
+.war-admin-page .war-field textarea::placeholder {
+  color: rgba(199, 189, 171, 0.4);
+}
+
+.war-admin-page .war-admin-search:focus,
+.war-admin-page .war-admin-login__form input:focus,
+.war-admin-page .war-admin-login__form textarea:focus,
+.war-admin-page .war-admin-login__form select:focus,
+.war-admin-page .war-field input:focus,
+.war-admin-page .war-field textarea:focus {
+  outline: none;
+  border-color: rgba(255, 184, 77, 0.62);
+  box-shadow: 0 0 0 3px rgba(255, 153, 0, 0.12);
+}
+
+.war-admin-page .war-alert,
+.war-admin-page .war-success {
+  border-radius: 16px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.war-admin-page .war-alert {
+  border-color: rgba(255, 123, 92, 0.4);
+  background: rgba(63, 24, 18, 0.72);
+  color: #ffcabd;
+}
+
+.war-admin-page .war-success {
+  border-color: rgba(255, 184, 77, 0.34);
+  background: rgba(55, 36, 12, 0.72);
+  color: #ffd48d;
+}
+
+.war-admin-page .war-stat {
+  padding: 20px;
+}
+
+.war-admin-page .war-stat__value {
+  font-size: clamp(32px, 5vw, 50px);
+}
+
+.war-admin-page .quest-status {
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid currentColor;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.war-admin-page .quest-status--verified,
+.war-admin-page .quest-status--ready {
+  color: #ffc670;
+}
+
+.war-admin-page .quest-status--pending,
+.war-admin-page .quest-status--started,
+.war-admin-page .quest-status--review {
+  color: #ffe1a8;
+}
+
+.war-admin-page .quest-status--rejected,
+.war-admin-page .quest-status--revoked,
+.war-admin-page .quest-status--expired {
+  color: #ff9b83;
+}
+
+.war-admin-page .war-admin-row {
+  gap: 16px;
+  padding: 18px 20px;
+}
+
+.war-admin-page .war-admin-row--expanded {
+  border-color: rgba(255, 184, 77, 0.5);
+  box-shadow:
+    0 28px 80px -40px rgba(0, 0, 0, 0.95),
+    0 0 0 1px rgba(255, 153, 0, 0.1),
+    0 18px 40px -26px rgba(255, 153, 0, 0.4);
+}
+
+.war-admin-page .war-admin-details {
+  border-top-color: rgba(255, 153, 0, 0.16);
+}
+
+.war-admin-page .war-admin-details__grid,
+.war-admin-page .war-admin-details__json-grid {
+  gap: 14px;
+}
+
+.war-admin-page .war-admin-table {
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.war-admin-page .war-admin-table__head {
+  border-bottom-color: rgba(255, 153, 0, 0.18);
+  background: rgba(255, 153, 0, 0.08);
+}
+
+.war-admin-page .war-admin-table__row + .war-admin-table__row {
+  border-top-color: rgba(255, 255, 255, 0.05);
+}
+
+.war-admin-page .war-admin-table__row span {
+  color: var(--wm-admin-copy-dim);
+}
+
+.war-admin-page .war-quiz-option {
+  border-radius: 18px;
+  border-color: rgba(255, 153, 0, 0.18);
+  background: linear-gradient(180deg, rgba(22, 24, 30, 0.96), rgba(12, 14, 18, 0.98));
+}
+
+.war-admin-page .war-quiz-option strong {
+  color: var(--wm-admin-accent-soft);
+}
+
+.war-admin-page .war-quiz-option--active {
+  border-color: rgba(255, 184, 77, 0.44);
+  color: #fff7ea;
+  background: linear-gradient(180deg, rgba(56, 38, 16, 0.98), rgba(27, 18, 10, 0.98));
+}
+
+.war-admin-page .war-admin-actions,
+.war-admin-page .war-admin-row__actions {
+  gap: 12px;
+}
+
+@media (max-width: 820px) {
+  .war-admin-page .war-admin-hero,
+  .war-admin-page .war-admin-row,
+  .war-admin-page .war-admin-details__head,
+  .war-admin-page .war-admin-details__grid,
+  .war-admin-page .war-admin-details__json-grid,
+  .war-admin-page .war-admin-table__head,
+  .war-admin-page .war-admin-table__row {
+    grid-template-columns: 1fr;
+  }
+
+  .war-admin-page .war-admin-tabs,
+  .war-admin-page .war-admin-actions,
+  .war-admin-page .war-admin-row__actions {
+    width: 100%;
+  }
+
+  .war-admin-page .war-admin-tab,
+  .war-admin-page .war-admin-actions button,
+  .war-admin-page .war-admin-row__actions button,
+  .war-admin-page .war-primary,
+  .war-admin-page .war-secondary {
+    width: 100%;
+  }
+}
