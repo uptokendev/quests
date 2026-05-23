@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { connectWallet } from '../lib/wallet'
 import './WarMissionsPage.css'
 import './WarMissionsSimplified.css'
@@ -201,6 +201,27 @@ type QuizSubmitResponse = {
   cooldownUntil?: string | null
 }
 
+type IdentityCheck = {
+  label: string
+  done: boolean
+  hint: string
+}
+
+type ProofDraft = {
+  quest: Quest
+  value: string
+  notes: string
+}
+
+type QuizSession = {
+  quest: Quest
+  title: string
+  passingScore: number
+  questions: QuizQuestion[]
+  answers: Record<string, string>
+  submitting: boolean
+}
+
 const badgeTypeLabels: Record<BadgeType, string> = {
   identity: 'Identity',
   mission: 'Missions',
@@ -377,10 +398,25 @@ function summarizeFallbackBadges(badges: ProfileBadge[]): BadgeSummary {
   return { total: badges.length, unlocked: badges.filter((badge) => badge.unlocked).length, byType }
 }
 
+function proofPlaceholder(quest: Quest) {
+  if (quest.verificationType?.startsWith('x_')) return 'https://x.com/your-post'
+  if (quest.verificationType?.includes('telegram')) return 'Telegram proof or message link'
+  if (quest.verificationType?.includes('discord')) return 'Discord proof or message link'
+  return 'Paste the proof link or metric reference'
+}
+
+function proofInstructions(quest: Quest) {
+  if (quest.verificationType?.startsWith('x_')) return 'Paste the public X post, reply, or quote-post link used for this mission.'
+  if (quest.verificationType === 'manual_review') return 'Share the clearest public proof you have. Admin review will use this reference.'
+  return 'Paste the best proof link or short reference for the mission. You can add context for reviewers below.'
+}
+
 export default function WarMissionsPage() {
   const { section } = useParams()
+  const navigate = useNavigate()
   const [missionsData, setMissionsData] = useState<WarMissionsResponse | null>(null)
   const [badgesData, setBadgesData] = useState<BadgesResponse | null>(null)
+  const [socialStatus, setSocialStatus] = useState<SocialStatusResponse | null>(null)
   const [leaderboardRows, setLeaderboardRows] = useState<LeaderboardRow[]>([])
   const [prizePools, setPrizePools] = useState<PrizePool[]>([])
   const [prizeWinners, setPrizeWinners] = useState<PrizeWinner[]>([])
@@ -390,6 +426,9 @@ export default function WarMissionsPage() {
   const [error, setError] = useState('')
   const [actionMessage, setActionMessage] = useState('')
   const [nowMs, setNowMs] = useState(Date.now())
+  const [proofDraft, setProofDraft] = useState<ProofDraft | null>(null)
+  const [proofSubmitting, setProofSubmitting] = useState(false)
+  const [quizSession, setQuizSession] = useState<QuizSession | null>(null)
 
   const profile = missionsData?.profile || null
   const isConnected = Boolean(profile)
@@ -425,11 +464,29 @@ export default function WarMissionsPage() {
     }
   }
 
+  const loadSocialStatus = async () => {
+    try {
+      const response = await fetch('/api/wm-social-status', { credentials: 'same-origin', cache: 'no-store' })
+      const data = (await response.json().catch(() => ({}))) as SocialStatusResponse & { error?: string }
+      if (!response.ok || !data?.ok) throw new Error(data.error || 'Social status unavailable.')
+      setSocialStatus(data)
+    } catch {
+      setSocialStatus(null)
+    }
+  }
+
   useEffect(() => { void loadMissions() }, [])
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 30000)
     return () => window.clearInterval(timer)
   }, [])
+  useEffect(() => {
+    if (!profile) {
+      setSocialStatus(null)
+      return
+    }
+    void loadSocialStatus()
+  }, [profile?.id])
 
   const categories = useMemo(() => {
     if (missionsData?.categories?.length) return missionsData.categories.map((category) => mapApiCategory(category, isConnected))
@@ -460,6 +517,37 @@ export default function WarMissionsPage() {
   const unlockedBadges = useMemo(() => badges.filter((badge) => badge.unlocked), [badges])
   const badgeGroups = useMemo(() => badgeTypeOrder.map((type) => ({ type, label: badgeTypeLabels[type], badges: badges.filter((badge) => badge.type === type) })).filter((group) => group.badges.length > 0), [badges])
 
+  const linkedProviders = useMemo(() => new Set((socialStatus?.accounts || []).map((account) => account.provider)), [socialStatus])
+  const identityChecks = useMemo<IdentityCheck[]>(() => [
+    { label: 'Wallet signature', done: Boolean(profile), hint: profile ? shorten(profile.walletAddress) : 'Required to unlock live quests' },
+    { label: 'X account', done: linkedProviders.has('x'), hint: linkedProviders.has('x') ? 'Connected for social verification' : 'Connect once when prompted by an X quest' },
+    { label: 'Telegram identity', done: linkedProviders.has('telegram'), hint: linkedProviders.has('telegram') ? 'Ready for join checks' : 'Connect once before running Telegram join quests' },
+    { label: 'Discord identity', done: linkedProviders.has('discord'), hint: linkedProviders.has('discord') ? 'Ready for join checks' : 'Connect once before running Discord join quests' },
+  ], [linkedProviders, profile])
+
+  const reviewQueue = useMemo(() => categories
+    .map((category) => ({
+      slug: category.slug,
+      title: category.title,
+      count: category.quests.filter((quest) => ['pending', 'review', 'started'].includes(quest.status)).length,
+    }))
+    .filter((entry) => entry.count > 0)
+    .sort((a, b) => b.count - a.count), [categories])
+
+  const missionLinks = useMemo(() => categories.map((category) => ({
+    slug: category.slug,
+    title: category.title,
+    accent: category.accent,
+    active: section === category.slug || (!section && category.slug === 'start-here'),
+  })), [categories, section])
+
+  const recruiterCta = useMemo(() => {
+    if (profile?.role === 'recruiter' || profile?.role === 'admin') {
+      return { to: '/recruiter/portal', label: 'Open recruiter portal' }
+    }
+    return { to: '/recruiter/apply', label: 'Apply as recruiter' }
+  }, [profile?.role])
+
   const signIn = async () => {
     setAuthing(true)
     setError('')
@@ -478,35 +566,11 @@ export default function WarMissionsPage() {
       const verifyData = await verifyResponse.json().catch(() => ({}))
       if (!verifyResponse.ok || !verifyData?.ok) throw new Error(verifyData?.error || 'Wallet sign-in failed.')
       await loadMissions()
+      await loadSocialStatus()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Wallet sign-in failed.')
     } finally {
       setAuthing(false)
-    }
-  }
-
-  const runQuestAction = async (quest: Quest) => {
-    if (!profile) { await signIn(); return }
-    if (!quest.slug) return
-    setActionBusy(quest.slug)
-    setActionMessage('')
-    setError('')
-    try {
-      if (quest.verificationType === 'docs_quiz') await runQuiz(quest)
-      else if (quest.verificationType === 'recruiter_application_submitted') await submitRecruiterApplication()
-      else if (quest.verificationType === 'wallet_connect') await signIn()
-      else if (quest.verificationType === 'telegram_join' || quest.verificationType === 'discord_join') await runJoinQuest(quest)
-      else if (quest.verificationType === 'x_follow') await linkXForQuest(quest)
-      else {
-        const submittedValue = window.prompt(`Submit proof for ${quest.title}`, quest.verificationType?.startsWith('x_') ? 'https://x.com/...' : '')
-        if (submittedValue === null) return
-        await submitQuest(quest.slug, submittedValue, { source: 'war_missions_ui' })
-      }
-      await loadMissions()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Quest action failed.')
-    } finally {
-      setActionBusy('')
     }
   }
 
@@ -526,6 +590,7 @@ export default function WarMissionsPage() {
     const response = await fetch('/api/wm-social-status', { credentials: 'same-origin', cache: 'no-store' })
     const data = (await response.json().catch(() => ({}))) as SocialStatusResponse & { error?: string }
     if (!response.ok || !data?.ok) throw new Error(data.error || 'Social status unavailable.')
+    setSocialStatus(data)
     return data
   }
 
@@ -570,16 +635,16 @@ export default function WarMissionsPage() {
     const provider = quest.verificationType === 'telegram_join' ? 'telegram' : 'discord'
     const label = provider === 'telegram' ? 'Telegram' : 'Discord'
     const destination = provider === 'telegram' ? 'group' : 'server'
-    const socialStatus = await getSocialStatus()
-    const account = socialStatus.accounts?.find((item) => item.provider === provider)
-    const inviteUrl = provider === 'telegram' ? socialStatus.telegramInviteUrl : socialStatus.discordInviteUrl
+    const social = await getSocialStatus()
+    const account = social.accounts?.find((item) => item.provider === provider)
+    const inviteUrl = provider === 'telegram' ? social.telegramInviteUrl : social.discordInviteUrl
 
     if (!account) {
       throw new Error(`${label} identity is not connected yet. Connect ${label} once in Identity Status, then return here so the bot can verify the ${destination} membership quest.`)
     }
 
     if (inviteUrl) window.open(inviteUrl, '_blank', 'noopener,noreferrer')
-    setActionMessage(`Opened the official ${label} ${destination}. Join it there — we are checking membership automatically.`)
+    setActionMessage(`Opened the official ${label} ${destination}. Join it there while we keep checking membership automatically.`)
 
     let lastMessage = ''
     for (let attempt = 1; attempt <= 12; attempt += 1) {
@@ -599,12 +664,12 @@ export default function WarMissionsPage() {
     setActionMessage(`${label} membership is not confirmed yet${lastMessage ? `: ${lastMessage}` : ''}. If you just joined, the bot will also keep checking when you refresh the quest page.`)
   }
 
-  const linkXForQuest = async (_quest: Quest) => {
-    const socialStatus = await getSocialStatus()
-    const xAccount = socialStatus.accounts?.find((item) => item.provider === 'x')
+  const linkXForQuest = async () => {
+    const social = await getSocialStatus()
+    const xAccount = social.accounts?.find((item) => item.provider === 'x')
 
     if (!xAccount) {
-      if (!socialStatus.xOAuthConfigured) {
+      if (!social.xOAuthConfigured) {
         throw new Error('X OAuth is not configured on this deploy yet.')
       }
       setActionMessage('Opening X authorization. Approve the connection, then you will return here for follow verification.')
@@ -615,13 +680,14 @@ export default function WarMissionsPage() {
     const data = await checkXFollow()
     if (data.follows || data.status === 'verified' || data.result?.ok) {
       setActionMessage('X follow confirmed. Quest verified and XP awarded.')
+      await loadMissions()
       return
     }
 
     setActionMessage('X account is linked, but the required follow is not confirmed yet. Follow the official account, then run this check again.')
   }
 
-  const runQuiz = async (quest: Quest) => {
+  const loadQuiz = async (quest: Quest) => {
     const quizResponse = await fetch(`/api/wm-quiz-load?questSlug=${encodeURIComponent(quest.slug || '')}`, { credentials: 'same-origin', cache: 'no-store' })
     const quizData = (await quizResponse.json().catch(() => ({}))) as QuizLoadResponse
     if (!quizResponse.ok || !quizData?.ok || !Array.isArray(quizData.questions)) throw new Error(quizData?.error || 'Quiz could not be loaded.')
@@ -629,62 +695,142 @@ export default function WarMissionsPage() {
       throw new Error(quizData.cooldownUntil ? `Quiz retry is locked until ${new Date(quizData.cooldownUntil).toLocaleString()}.` : 'Quiz retry cooldown is active.')
     }
 
-    const answers: Record<string, string> = {}
-    const questionIds: string[] = []
-    for (const question of quizData.questions) {
-      const options = (question.answers || []).map((answer) => `${answer.key}: ${answer.text}`).join('\n')
-      const answer = window.prompt(`${question.prompt}\n\n${options}\n\nEnter answer key:`)
-      if (answer === null) return
-      answers[question.id] = answer.trim().toLowerCase()
-      questionIds.push(question.id)
-    }
-
-    const submitResponse = await fetch('/api/wm-quiz-submit', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ questSlug: quest.slug, answers, questionIds }),
+    setQuizSession({
+      quest,
+      title: quizData.title || quest.title,
+      passingScore: quizData.passingScore ?? 0,
+      questions: quizData.questions,
+      answers: {},
+      submitting: false,
     })
-    const submitData = (await submitResponse.json().catch(() => ({}))) as QuizSubmitResponse
-    if (!submitResponse.ok || !submitData?.ok) throw new Error(submitData?.error || 'Quiz submission failed.')
-
-    const passingScore = submitData.passingScore ?? quizData.passingScore ?? 0
-    setActionMessage(
-      submitData.passed
-        ? `Quiz passed: ${submitData.score}/${submitData.totalQuestions}. Needed ${passingScore}.`
-        : `Quiz failed: ${submitData.score}/${submitData.totalQuestions}. Needed ${passingScore}.${submitData.cooldownUntil ? ` Retry after ${new Date(submitData.cooldownUntil).toLocaleString()}.` : ''}`,
-    )
   }
 
-  const submitRecruiterApplication = async () => {
-    const xUsername = window.prompt('X username') || ''
-    const telegramUsername = window.prompt('Telegram username') || ''
-    const discordUsername = window.prompt('Discord username') || ''
-    const motivation = window.prompt('Why should you be a recruiter?') || ''
-    const response = await fetch('/api/wm-recruiter-apply', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ xUsername, telegramUsername, discordUsername, motivation }),
+  const submitQuizSession = async () => {
+    if (!quizSession?.quest.slug) return
+
+    const questionIds = quizSession.questions.map((question) => question.id)
+    const unanswered = questionIds.some((questionId) => !quizSession.answers[questionId])
+    if (unanswered) {
+      setError('Answer every quiz question before submitting.')
+      return
+    }
+
+    setError('')
+    setQuizSession((current) => current ? { ...current, submitting: true } : current)
+
+    try {
+      const submitResponse = await fetch('/api/wm-quiz-submit', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questSlug: quizSession.quest.slug, answers: quizSession.answers, questionIds }),
+      })
+      const submitData = (await submitResponse.json().catch(() => ({}))) as QuizSubmitResponse
+      if (!submitResponse.ok || !submitData?.ok) throw new Error(submitData?.error || 'Quiz submission failed.')
+
+      const passingScore = submitData.passingScore ?? quizSession.passingScore
+      setActionMessage(
+        submitData.passed
+          ? `Quiz passed: ${submitData.score}/${submitData.totalQuestions}. Needed ${passingScore}.`
+          : `Quiz failed: ${submitData.score}/${submitData.totalQuestions}. Needed ${passingScore}.${submitData.cooldownUntil ? ` Retry after ${new Date(submitData.cooldownUntil).toLocaleString()}.` : ''}`,
+      )
+      setQuizSession(null)
+      await loadMissions()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Quiz submission failed.')
+      setQuizSession((current) => current ? { ...current, submitting: false } : current)
+    }
+  }
+
+  const openProofComposer = (quest: Quest) => {
+    setProofDraft({
+      quest,
+      value: '',
+      notes: '',
     })
-    const data = await response.json().catch(() => ({}))
-    if (!response.ok || !data?.ok) throw new Error(data?.error || 'Recruiter application failed.')
-    setActionMessage('Recruiter application submitted.')
+  }
+
+  const submitProofDraft = async () => {
+    if (!proofDraft?.quest.slug) return
+    if (!proofDraft.value.trim()) {
+      setError('Add a proof link or reference before submitting.')
+      return
+    }
+
+    setProofSubmitting(true)
+    setError('')
+    try {
+      await submitQuest(proofDraft.quest.slug, proofDraft.value.trim(), {
+        source: 'war_missions_ui',
+        notes: proofDraft.notes.trim() || undefined,
+      })
+      setProofDraft(null)
+      await loadMissions()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Quest submission failed.')
+    } finally {
+      setProofSubmitting(false)
+    }
+  }
+
+  const runQuestAction = async (quest: Quest) => {
+    if (!profile) {
+      await signIn()
+      return
+    }
+    if (!quest.slug) return
+
+    setActionMessage('')
+    setError('')
+
+    if (quest.verificationType === 'docs_quiz') {
+      setActionBusy(quest.slug)
+      try {
+        await loadQuiz(quest)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Quiz could not be loaded.')
+      } finally {
+        setActionBusy('')
+      }
+      return
+    }
+
+    if (quest.verificationType === 'recruiter_application_submitted') {
+      navigate(profile.role === 'recruiter' || profile.role === 'admin' ? '/recruiter/portal' : '/recruiter/apply')
+      return
+    }
+
+    if (!['wallet_connect', 'telegram_join', 'discord_join', 'x_follow'].includes(quest.verificationType || '')) {
+      openProofComposer(quest)
+      return
+    }
+
+    setActionBusy(quest.slug)
+    try {
+      if (quest.verificationType === 'wallet_connect') await signIn()
+      else if (quest.verificationType === 'telegram_join' || quest.verificationType === 'discord_join') await runJoinQuest(quest)
+      else if (quest.verificationType === 'x_follow') await linkXForQuest()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Quest action failed.')
+    } finally {
+      setActionBusy('')
+    }
   }
 
   const questActionLabel = (quest: Quest) => {
     if (quest.status === 'verified') return 'Done'
     if (quest.status === 'locked') return 'Locked'
-    if (quest.verificationType === 'docs_quiz') return 'Start quiz'
-    if (quest.verificationType === 'recruiter_application_submitted') return 'Apply'
+    if (quest.verificationType === 'docs_quiz') return 'Open quiz'
+    if (quest.verificationType === 'recruiter_application_submitted') return profile?.role === 'recruiter' || profile?.role === 'admin' ? 'Open portal' : 'Apply now'
     if (quest.verificationType === 'wallet_connect') return 'Sign'
     if (quest.verificationType === 'telegram_join') return 'Join & verify TG'
     if (quest.verificationType === 'discord_join') return 'Join & verify Discord'
     if (quest.verificationType === 'x_follow') return 'Connect / verify X'
-    return quest.status === 'review' || quest.status === 'pending' ? 'Update proof' : 'Submit'
+    return quest.status === 'review' || quest.status === 'pending' ? 'Update proof' : 'Submit proof'
   }
 
   const missionHeading = visibleCategories.length === 1 ? visibleCategories[0].title : 'Choose your mission path'
+  const answeredQuizQuestions = quizSession ? quizSession.questions.filter((question) => quizSession.answers[question.id]).length : 0
 
   return (
     <div className="war-missions-page">
@@ -709,7 +855,7 @@ export default function WarMissionsPage() {
             <p>Complete quests, earn XP, build streaks, recruit verified soldiers, and qualify for weekly prizes before the full Warzone opens.</p>
             <div className="war-hero-actions">
               <button type="button" className="war-primary" onClick={() => void signIn()} disabled={authing}>{authing ? 'Waiting for signature...' : profile ? 'Wallet connected' : 'Connect wallet'}</button>
-              <Link to="/recruiter/portal" className="war-secondary">Recruiter sign in</Link>
+              <Link to={recruiterCta.to} className="war-secondary">{recruiterCta.label}</Link>
             </div>
             {error ? <div className="war-alert">{error}</div> : null}
             {actionMessage ? <div className="war-success">{actionMessage}</div> : null}
@@ -718,12 +864,14 @@ export default function WarMissionsPage() {
           <aside className="war-status-card">
             <div className="war-status-card__label">Identity status</div>
             <div className="war-status-card__title">{profile ? 'Wallet verified' : 'Wallet required'}</div>
-            <p>{profile ? `Profile ${shorten(profile.walletAddress)} is active. Telegram/Discord join quests are separate from account connection.` : 'Wallet is the primary identity. Social accounts can be connected once, then join quests verify membership.'}</p>
+            <p>{profile ? `Profile ${shorten(profile.walletAddress)} is active. Link your socials once, then run join and follow quests without leaving this flow.` : 'Wallet is the primary identity. Social accounts can be connected once, then join quests verify membership.'}</p>
             <div className="war-checklist">
-              <span className={profile ? 'war-checklist__done' : ''}>Wallet signature</span>
-              <span>X account</span>
-              <span>Telegram identity</span>
-              <span>Discord identity</span>
+              {identityChecks.map((item) => (
+                <span className={item.done ? 'war-checklist__done' : ''} key={item.label}>
+                  <strong>{item.label}</strong>
+                  <em>{item.hint}</em>
+                </span>
+              ))}
             </div>
             <div className="war-badge-strip" aria-label="Unlocked badges">
               {unlockedBadges.length > 0 ? unlockedBadges.slice(0, 5).map((badge) => <span className={`war-badge-dot war-badge-dot--${badge.rarity}`} title={badge.title} key={badge.slug}>{badgeCode(badge)}</span>) : <span className="war-badge-strip__empty">No badges unlocked yet</span>}
@@ -734,6 +882,19 @@ export default function WarMissionsPage() {
         <section className="war-stats" aria-label="Mission stats">
           {stats.map((stat) => <div className="war-stat" key={stat.label}><div className="war-stat__label">{stat.label}</div><div className="war-stat__value">{stat.value}</div><div className="war-stat__help">{stat.help}</div></div>)}
         </section>
+
+        {(section === 'leaderboard' || section === 'rewards') ? null : (
+          <section className="war-panel war-panel--tight war-mission-rail" aria-label="Mission categories">
+            <div className="war-route-strip">
+              {missionLinks.map((category) => (
+                <Link key={category.slug} to={`/missions/${category.slug}`} className={`war-route-chip ${category.active ? 'war-route-chip--active' : ''}`}>
+                  <strong>{category.title}</strong>
+                  <span>{category.accent}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="war-panel war-badges-panel" aria-label="War Missions badges">
           <div className="war-section-head">
@@ -759,7 +920,12 @@ export default function WarMissionsPage() {
                   <div className="quest-list">
                     {category.quests.map((quest) => (
                       <div className="quest-row" key={quest.slug || quest.title}>
-                        <div><div className="quest-row__title">{quest.title}</div><div className="quest-row__text">{quest.description}</div></div>
+                        <div>
+                          <div className="quest-row__title">{quest.title}</div>
+                          <div className="quest-row__text">{quest.description}</div>
+                          {quest.verificationType === 'recruiter_application_submitted' && profile?.role !== 'recruiter' && profile?.role !== 'admin' ? <div className="quest-row__hint">Application now opens the dedicated recruiter form instead of a browser prompt.</div> : null}
+                          {quest.verificationType === 'docs_quiz' ? <div className="quest-row__hint">Quiz now runs inside the app so users can review every question before submitting.</div> : null}
+                        </div>
                         <div className="quest-row__meta"><strong>{quest.xp}</strong><span className={`quest-status quest-status--${quest.status}`}>{statusLabel(quest.status)}</span><button type="button" className="quest-action" disabled={quest.status === 'locked' || quest.status === 'verified' || actionBusy === quest.slug} onClick={() => void runQuestAction(quest)}>{actionBusy === quest.slug ? 'Checking...' : questActionLabel(quest)}</button></div>
                       </div>
                     ))}
@@ -787,10 +953,91 @@ export default function WarMissionsPage() {
           </div>
           <div className="war-panel war-panel--tight">
             <div className="war-kicker">Pending review</div><h2>Admin watchlist</h2>
-            <div className="review-list"><span>High-XP Black Market submissions</span><span>Recruiter applications</span><span>X bio link checks</span><span>Duplicate content flags</span></div>
+            {reviewQueue.length === 0 ? <div className="leaderboard-empty">Nothing is waiting for review right now.</div> : <div className="review-list">{reviewQueue.slice(0, 4).map((entry) => <span key={entry.slug}><strong>{entry.title}</strong><em>{entry.count} queued</em></span>)}</div>}
           </div>
         </section>
       </main>
+
+      {proofDraft ? (
+        <div className="war-modal-shell" role="dialog" aria-modal="true" aria-labelledby="proof-modal-title">
+          <div className="war-modal-backdrop" onClick={() => !proofSubmitting && setProofDraft(null)} />
+          <div className="war-modal">
+            <div className="war-modal__head">
+              <div>
+                <div className="war-kicker">Proof submission</div>
+                <h2 id="proof-modal-title">{proofDraft.quest.title}</h2>
+              </div>
+              <button type="button" className="war-modal__close" onClick={() => setProofDraft(null)} disabled={proofSubmitting}>Close</button>
+            </div>
+            <p className="war-modal__copy">{proofInstructions(proofDraft.quest)}</p>
+            <label className="war-field">
+              <span>Proof link or reference</span>
+              <input
+                type="text"
+                value={proofDraft.value}
+                onChange={(event) => setProofDraft((current) => current ? { ...current, value: event.target.value } : current)}
+                placeholder={proofPlaceholder(proofDraft.quest)}
+              />
+            </label>
+            <label className="war-field">
+              <span>Context for review</span>
+              <textarea
+                value={proofDraft.notes}
+                onChange={(event) => setProofDraft((current) => current ? { ...current, notes: event.target.value } : current)}
+                rows={4}
+                placeholder="Add metrics, campaign notes, or anything that helps review this faster."
+              />
+            </label>
+            <div className="war-modal__actions">
+              <button type="button" className="war-secondary" onClick={() => setProofDraft(null)} disabled={proofSubmitting}>Cancel</button>
+              <button type="button" className="war-primary" onClick={() => void submitProofDraft()} disabled={proofSubmitting}>{proofSubmitting ? 'Submitting...' : 'Submit proof'}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {quizSession ? (
+        <div className="war-modal-shell" role="dialog" aria-modal="true" aria-labelledby="quiz-modal-title">
+          <div className="war-modal-backdrop" onClick={() => !quizSession.submitting && setQuizSession(null)} />
+          <div className="war-modal war-modal--wide">
+            <div className="war-modal__head">
+              <div>
+                <div className="war-kicker">Recon quiz</div>
+                <h2 id="quiz-modal-title">{quizSession.title}</h2>
+              </div>
+              <button type="button" className="war-modal__close" onClick={() => setQuizSession(null)} disabled={quizSession.submitting}>Close</button>
+            </div>
+            <p className="war-modal__copy">Answer all {quizSession.questions.length} questions, then submit once. Passing score: {quizSession.passingScore}.</p>
+            <div className="war-quiz-progress">{answeredQuizQuestions} / {quizSession.questions.length} answered</div>
+            <div className="war-quiz-list">
+              {quizSession.questions.map((question, index) => (
+                <section className="war-quiz-card" key={question.id}>
+                  <div className="war-quiz-card__count">Question {index + 1}</div>
+                  <h3>{question.prompt}</h3>
+                  <div className="war-quiz-options">
+                    {question.answers.map((answer) => (
+                      <button
+                        type="button"
+                        key={answer.key}
+                        className={`war-quiz-option ${quizSession.answers[question.id] === answer.key ? 'war-quiz-option--active' : ''}`}
+                        onClick={() => setQuizSession((current) => current ? { ...current, answers: { ...current.answers, [question.id]: answer.key } } : current)}
+                        disabled={quizSession.submitting}
+                      >
+                        <strong>{answer.key.toUpperCase()}</strong>
+                        <span>{answer.text}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+            <div className="war-modal__actions">
+              <button type="button" className="war-secondary" onClick={() => setQuizSession(null)} disabled={quizSession.submitting}>Cancel</button>
+              <button type="button" className="war-primary" onClick={() => void submitQuizSession()} disabled={quizSession.submitting}>{quizSession.submitting ? 'Submitting...' : 'Submit quiz'}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
