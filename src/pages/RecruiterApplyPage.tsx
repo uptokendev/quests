@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { connectWallet } from '../lib/wallet'
 import './WarMissionsPage.css'
@@ -107,10 +107,6 @@ export default function RecruiterApplyPage() {
   }, [])
 
   const alreadyApproved = profile?.role === 'recruiter' || profile?.role === 'admin' || recruiterStatus?.status === 'approved'
-  const recruiterQuest = useMemo(
-    () => reinforcementQuests.find((quest) => quest.verificationType === 'recruiter_application_accepted') || null,
-    [reinforcementQuests],
-  )
 
   const signIn = async () => {
     setAuthing(true)
