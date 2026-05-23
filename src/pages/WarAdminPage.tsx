@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import './WarMissionsPage.css'
+import './WarAdminPage.css'
 
 type AdminSession = {
   username: string
@@ -921,36 +922,44 @@ export default function WarAdminPage() {
             <article className={isExpanded ? 'war-admin-row war-admin-row--expanded' : 'war-admin-row'} key={row.id}>
               <div>
                 <strong>{row.displayName || shortId(row.walletAddress)}</strong>
-                <span>{row.status} | role {row.role} | verified recruits {row.verifiedRecruits}</span>
-                <span>wallet {row.walletAddress}</span>
+                <span>{row.role} | X @{row.xUsername || 'none'} | TG @{row.telegramUsername || 'none'}</span>
                 <span>{shortText(row.motivation, 'No motivation provided.', 180)}</span>
               </div>
               <div className="war-admin-row__actions">
                 <StatusPill value={row.status} />
-                <button type="button" onClick={() => setExpandedId(isExpanded ? '' : row.id)}>{isExpanded ? 'Close data' : 'Open data'}</button>
+                <button type="button" onClick={() => setExpandedId(isExpanded ? '' : row.id)}>{isExpanded ? 'Close application' : 'Open application'}</button>
               </div>
               {isExpanded ? renderRecruiterApplicationDetails(row) : null}
             </article>
           )
         })}
-        {!recruiterApplications.length ? <div className="war-alert">No recruiter applications match the current filters.</div> : null}
       </div>
     </section>
   )
 
   const renderUsers = () => (
     <section className="war-panel">
-      <div className="war-section-head"><div><div className="war-kicker">Users</div><h2>{users.length} quest users</h2></div></div>
+      <div className="war-section-head">
+        <div><div className="war-kicker">User roster</div><h2>{users.length} users</h2></div>
+        <p>Snapshot of wallets, risk scores, social counts, and active XP to help identify suspicious accounts quickly.</p>
+      </div>
       <div className="war-admin-table">
-        <div className="war-admin-table__head"><span>Wallet</span><span>Name</span><span>Role</span><span>Risk</span><span>Quests</span><span>XP</span></div>
-        {users.map((user) => (
-          <div className="war-admin-table__row" key={user.id}>
-            <span>{shortId(user.walletAddress)}</span>
-            <span>{user.displayName || 'none'}</span>
-            <span>{user.role}{user.isBanned ? ' / banned' : ''}</span>
-            <span>{user.riskScore}</span>
-            <span>{user.verifiedCount}/{user.completionCount}</span>
-            <span>{user.activeXp}</span>
+        <div className="war-admin-table__head">
+          <span>Wallet</span>
+          <span>Role</span>
+          <span>Name</span>
+          <span>Risk</span>
+          <span>XP</span>
+          <span>Verified</span>
+        </div>
+        {users.map((row) => (
+          <div className="war-admin-table__row" key={row.id}>
+            <span>{shortId(row.walletAddress)}</span>
+            <span>{row.role}</span>
+            <span>{row.displayName || 'none'}</span>
+            <span>{row.riskScore}</span>
+            <span>{row.activeXp}</span>
+            <span>{row.verifiedCount}</span>
           </div>
         ))}
       </div>
@@ -959,200 +968,140 @@ export default function WarAdminPage() {
 
   const renderSocial = () => (
     <section className="war-panel">
-      <div className="war-section-head"><div><div className="war-kicker">Social identities</div><h2>{socialAccounts.length} linked accounts</h2></div></div>
-      <div className="war-admin-list">
-        {socialAccounts.map((account) => (
-          <article className="war-admin-row" key={account.id}>
-            <div>
-              <strong>{account.provider}: {account.username}</strong>
-              <span>wallet {account.walletAddress}</span>
-              <span>provider user ID {account.providerUserId}</span>
-              <span>last verified {dateText(account.lastVerifiedAt)}</span>
-            </div>
-          </article>
+      <div className="war-section-head">
+        <div><div className="war-kicker">Social link audit</div><h2>{socialAccounts.length} linked accounts</h2></div>
+        <p>Cross-check provider IDs and usernames against the wallet roster when fraud or duplicate-account concerns show up.</p>
+      </div>
+      <div className="war-admin-table">
+        <div className="war-admin-table__head">
+          <span>Wallet</span>
+          <span>Provider</span>
+          <span>Username</span>
+          <span>Provider ID</span>
+          <span>Verified</span>
+          <span>Created</span>
+        </div>
+        {socialAccounts.map((row) => (
+          <div className="war-admin-table__row" key={row.id}>
+            <span>{shortId(row.walletAddress)}</span>
+            <span>{row.provider}</span>
+            <span>{row.username || 'none'}</span>
+            <span>{shortId(row.providerUserId)}</span>
+            <span>{dateText(row.lastVerifiedAt)}</span>
+            <span>{dateText(row.createdAt)}</span>
+          </div>
         ))}
       </div>
     </section>
   )
 
   const renderQuizzes = () => (
-    <section className="war-panel">
-      <div className="war-section-head">
-        <div><div className="war-kicker">Docs quiz bank</div><h2>{filteredQuizQuestions.length} questions</h2></div>
-        <p>Create, update, and deactivate quiz questions for War Missions documentation quests without leaving the admin console.</p>
-      </div>
-
-      <div className="war-two-col">
-        <section className="war-panel">
-          <div className="war-section-head">
-            <div><div className="war-kicker">Quiz details</div><h3>{quizTemplateDraft.title || 'Choose a quiz'}</h3></div>
-            <p>The quizzes are fixed. Pick one, update its title or description if needed, then manage the questions below.</p>
-          </div>
-          {error && busy !== 'load' ? <div className="war-alert">{error}</div> : null}
-          {message ? <div className="war-success">{message}</div> : null}
-          <form className="war-admin-login__form" onSubmit={saveQuizTemplate}>
-            <label>
-              <span>Quiz</span>
-              <select
-                value={quizDraft.questSlug}
-                onChange={(event) => setQuizDraft((current) => ({ ...current, questSlug: event.target.value }))}
-                disabled={!quizTemplates.length}
-              >
-                {!quizTemplates.length ? <option value="">No quiz templates found</option> : null}
-                {quizTemplates.map((template) => <option key={template.id} value={template.slug}>{template.title}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>Title</span>
-              <input value={quizTemplateDraft.title} onChange={(event) => setQuizTemplateDraft((current) => ({ ...current, title: event.target.value }))} />
-            </label>
-            <label>
-              <span>Description</span>
-              <textarea value={quizTemplateDraft.description} onChange={(event) => setQuizTemplateDraft((current) => ({ ...current, description: event.target.value }))} rows={4} />
-            </label>
-            <label>
-              <span>Status</span>
-              <select value={quizTemplateDraft.active ? 'active' : 'inactive'} onChange={(event) => setQuizTemplateDraft((current) => ({ ...current, active: event.target.value === 'active' }))}>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </label>
-            <div className="war-admin-actions">
-              <button className="war-primary" type="submit" disabled={busy === 'save-quiz-template' || !quizTemplateDraft.id}>{busy === 'save-quiz-template' ? 'Saving...' : 'Save quiz details'}</button>
-            </div>
-          </form>
-        </section>
-
-        <section className="war-panel">
-          <div className="war-section-head">
-            <div><div className="war-kicker">Question editor</div><h3>{quizDraft.id ? 'Edit question' : 'New question'}</h3></div>
-            <p>Add or remove questions inside the selected quiz. This is the question bank for the fixed quiz above.</p>
-          </div>
-          <form className="war-admin-login__form" onSubmit={submitQuizQuestion}>
-            <label>
-              <span>Quiz</span>
-              <select
-                value={quizDraft.questSlug}
-                onChange={(event) => setQuizDraft((current) => ({ ...current, questSlug: event.target.value }))}
-                disabled={!quizTemplates.length}
-              >
-                {!quizTemplates.length ? <option value="">No quiz templates found</option> : null}
-                {quizTemplates.map((template) => <option key={template.id} value={template.slug}>{template.title}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>Prompt</span>
-              <textarea value={quizDraft.prompt} onChange={(event) => setQuizDraft((current) => ({ ...current, prompt: event.target.value }))} rows={4} />
-            </label>
-            <label>
-              <span>Answer A</span>
-              <input value={quizDraft.answerA} onChange={(event) => setQuizDraft((current) => ({ ...current, answerA: event.target.value }))} />
-            </label>
-            <label>
-              <span>Answer B</span>
-              <input value={quizDraft.answerB} onChange={(event) => setQuizDraft((current) => ({ ...current, answerB: event.target.value }))} />
-            </label>
-            <label>
-              <span>Answer C</span>
-              <input value={quizDraft.answerC} onChange={(event) => setQuizDraft((current) => ({ ...current, answerC: event.target.value }))} />
-            </label>
-            <label>
-              <span>Answer D</span>
-              <input value={quizDraft.answerD} onChange={(event) => setQuizDraft((current) => ({ ...current, answerD: event.target.value }))} />
-            </label>
-            <label>
-              <span>Correct answer</span>
-              <select value={quizDraft.correctAnswerKey} onChange={(event) => setQuizDraft((current) => ({ ...current, correctAnswerKey: event.target.value }))}>
-                <option value="a">A</option>
-                <option value="b">B</option>
-                <option value="c">C</option>
-                <option value="d">D</option>
-              </select>
-            </label>
-            <label>
-              <span>Explanation</span>
-              <textarea value={quizDraft.explanation} onChange={(event) => setQuizDraft((current) => ({ ...current, explanation: event.target.value }))} rows={3} />
-            </label>
-            <label>
-              <span>Display order</span>
-              <input value={quizDraft.displayOrder} onChange={(event) => setQuizDraft((current) => ({ ...current, displayOrder: event.target.value }))} inputMode="numeric" />
-            </label>
-            <label>
-              <span>Status</span>
-              <select value={quizDraft.active ? 'active' : 'inactive'} onChange={(event) => setQuizDraft((current) => ({ ...current, active: event.target.value === 'active' }))}>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </label>
-            <div className="war-admin-actions">
-              <button className="war-primary" type="submit" disabled={busy === 'save-quiz' || !quizDraft.questSlug}>{busy === 'save-quiz' ? 'Saving...' : quizDraft.id ? 'Update question' : 'Create question'}</button>
-              <button className="war-secondary" type="button" onClick={resetQuizDraft}>Reset</button>
-            </div>
-          </form>
-        </section>
-
-        <section className="war-panel">
-          <div className="war-section-head">
-            <div><div className="war-kicker">Question filters</div><h3>Review and manage</h3></div>
-            <p>Filter by quiz, search by text, and remove questions cleanly when the bank changes.</p>
-          </div>
-          <div className="war-admin-login__form">
-            <label>
-              <span>Quiz filter</span>
-              <select value={quizQuestSlug} onChange={(event) => setQuizQuestSlug(event.target.value)}>
-                <option value="">All docs quizzes</option>
-                {quizTemplates.map((template) => <option key={template.id} value={template.slug}>{template.title}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>Include inactive</span>
-              <select value={quizIncludeInactive ? 'true' : 'false'} onChange={(event) => setQuizIncludeInactive(event.target.value === 'true')}>
-                <option value="false">Active only</option>
-                <option value="true">Show inactive too</option>
-              </select>
-            </label>
-            <div className="war-admin-actions">
-              <button className="war-secondary" type="button" onClick={() => void loadQuizQuestions()} disabled={busy === 'load-quizzes'}>{busy === 'load-quizzes' ? 'Refreshing...' : 'Refresh questions'}</button>
-            </div>
-          </div>
-          {!quizLoaded && busy === 'load-quizzes' ? <div className="war-alert">Loading quiz questions...</div> : null}
-          <div className="war-admin-list">
-            {filteredQuizQuestions.map((question) => {
-              const answers = normalizeQuizAnswers(question.answers)
-              return (
-                <article className="war-admin-row" key={question.id}>
-                  <div>
-                    <strong>{question.questTitle || question.questSlug}</strong>
-                    <span>{question.questSlug} | {question.active ? 'active' : 'inactive'} | answer {question.correctAnswerKey.toUpperCase()}</span>
-                    <span>{shortText(question.prompt, 'No prompt', 220)}</span>
-                    <span>{answers.map((answer) => `${answer.key.toUpperCase()}: ${answer.text}`).join(' | ')}</span>
-                    {question.explanation ? <span>explanation: {shortText(question.explanation, 'none', 160)}</span> : null}
-                  </div>
-                  <div className="war-admin-row__actions">
-                    <button type="button" onClick={() => editQuizQuestion(question)}>Edit</button>
-                    <button type="button" onClick={() => void removeQuizQuestion(question.id)} disabled={busy === 'remove-quiz'}>Remove</button>
-                  </div>
-                </article>
-              )
-            })}
-            {!filteredQuizQuestions.length ? <div className="war-alert">No quiz questions match the current filters yet.</div> : null}
-          </div>
-        </section>
-      </div>
+    <section className="war-two-col">
+      <section className="war-panel">
+        <div className="war-section-head">
+          <div><div className="war-kicker">Quiz bank</div><h2>{filteredQuizQuestions.length} quiz questions</h2></div>
+          <p>Update quiz metadata, swap answers, and curate which questions are active without touching the API directly.</p>
+        </div>
+        <div className="war-admin-actions">
+          <button type="button" onClick={resetQuizDraft}>New question</button>
+        </div>
+        <div className="war-quiz-list">
+          {filteredQuizQuestions.map((question) => {
+            const answers = normalizeQuizAnswers(question.answers)
+            return (
+              <article key={question.id} className="war-quiz-card">
+                <div className="war-kicker">{question.questSlug}</div>
+                <h3>{question.prompt}</h3>
+                <div className="war-quiz-progress">Correct answer: {question.correctAnswerKey.toUpperCase()}</div>
+                <div className="war-quiz-options">
+                  {answers.map((answer) => (
+                    <button key={answer.key} type="button" className={answer.key === question.correctAnswerKey ? 'war-quiz-option war-quiz-option--active' : 'war-quiz-option'}>
+                      <strong>{answer.key.toUpperCase()}</strong>
+                      <span>{answer.text}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="war-admin-actions">
+                  <button type="button" onClick={() => editQuizQuestion(question)}>Edit</button>
+                  <button type="button" onClick={() => void removeQuizQuestion(question.id)}>Delete</button>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      </section>
+      <section className="war-panel">
+        <div className="war-section-head">
+          <div><div className="war-kicker">Quiz editor</div><h2>{quizDraft.id ? 'Edit question' : 'Create question'}</h2></div>
+          <p>Every question is tied to a quest template so the missions page can serve the right quiz in the right order.</p>
+        </div>
+        <form className="war-admin-login__form" onSubmit={submitQuizQuestion}>
+          <label>
+            <span>Quiz</span>
+            <select value={quizDraft.questSlug} onChange={(event) => setQuizDraft((current) => ({ ...current, questSlug: event.target.value }))}>
+              <option value="">Choose quiz</option>
+              {quizTemplates.map((template) => <option key={template.id} value={template.slug}>{template.title}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Prompt</span>
+            <textarea value={quizDraft.prompt} onChange={(event) => setQuizDraft((current) => ({ ...current, prompt: event.target.value }))} />
+          </label>
+          <label>
+            <span>Answer A</span>
+            <input value={quizDraft.answerA} onChange={(event) => setQuizDraft((current) => ({ ...current, answerA: event.target.value }))} />
+          </label>
+          <label>
+            <span>Answer B</span>
+            <input value={quizDraft.answerB} onChange={(event) => setQuizDraft((current) => ({ ...current, answerB: event.target.value }))} />
+          </label>
+          <label>
+            <span>Answer C</span>
+            <input value={quizDraft.answerC} onChange={(event) => setQuizDraft((current) => ({ ...current, answerC: event.target.value }))} />
+          </label>
+          <label>
+            <span>Answer D</span>
+            <input value={quizDraft.answerD} onChange={(event) => setQuizDraft((current) => ({ ...current, answerD: event.target.value }))} />
+          </label>
+          <label>
+            <span>Correct answer</span>
+            <select value={quizDraft.correctAnswerKey} onChange={(event) => setQuizDraft((current) => ({ ...current, correctAnswerKey: event.target.value }))}>
+              <option value="a">A</option>
+              <option value="b">B</option>
+              <option value="c">C</option>
+              <option value="d">D</option>
+            </select>
+          </label>
+          <label>
+            <span>Explanation</span>
+            <textarea value={quizDraft.explanation} onChange={(event) => setQuizDraft((current) => ({ ...current, explanation: event.target.value }))} />
+          </label>
+          <label>
+            <span>Display order</span>
+            <input value={quizDraft.displayOrder} onChange={(event) => setQuizDraft((current) => ({ ...current, displayOrder: event.target.value }))} type="number" />
+          </label>
+          <button className="war-primary" type="submit" disabled={busy === 'save-quiz'}>{busy === 'save-quiz' ? 'Saving...' : quizDraft.id ? 'Update question' : 'Create question'}</button>
+        </form>
+      </section>
     </section>
   )
 
   const renderLogs = () => (
     <section className="war-panel">
-      <div className="war-section-head"><div><div className="war-kicker">Audit trail</div><h2>{data?.verificationLogs?.length || 0} latest logs</h2></div></div>
+      <div className="war-section-head">
+        <div><div className="war-kicker">Verification logs</div><h2>{data?.verificationLogs?.length || 0} recent logs</h2></div>
+        <p>Latest provider responses and moderation notes for troubleshooting failed verification attempts.</p>
+      </div>
       <div className="war-admin-list">
-        {(data?.verificationLogs || []).map((log) => (
-          <article className="war-admin-row" key={log.id}>
+        {(data?.verificationLogs || []).map((row) => (
+          <article className="war-admin-row" key={row.id}>
             <div>
-              <strong>{log.provider || 'admin'} | {log.status || 'unknown'} | {log.verificationType || 'verification'}</strong>
-              <span>{log.message || 'No message'}</span>
-              <span>wallet {shortId(log.walletAddress)} | completion {shortId(log.completionId)}</span>
-              <span>{dateText(log.createdAt)}</span>
+              <strong>{row.provider || 'system'} | {row.status || 'unknown'}</strong>
+              <span>{shortText(row.message, 'No message', 180)}</span>
+              <span>wallet {shortId(row.walletAddress)} | completion {shortId(row.completionId)}</span>
+            </div>
+            <div className="war-admin-row__actions">
+              <StatusPill value={row.status || 'unknown'} />
             </div>
           </article>
         ))}
@@ -1162,18 +1111,21 @@ export default function WarAdminPage() {
 
   const renderNotifications = () => (
     <section className="war-panel">
-      <div className="war-section-head"><div><div className="war-kicker">Notifications</div><h2>{data?.notifications?.length || 0} admin notices</h2></div></div>
+      <div className="war-section-head">
+        <div><div className="war-kicker">Alert queue</div><h2>{data?.notifications?.length || 0} notifications</h2></div>
+        <p>Resolve moderation alerts and system notices once they have been reviewed.</p>
+      </div>
       <div className="war-admin-list">
-        {(data?.notifications || []).map((notice) => (
-          <article className="war-admin-row" key={notice.id}>
+        {(data?.notifications || []).map((row) => (
+          <article className="war-admin-row" key={row.id}>
             <div>
-              <strong>{notice.title}</strong>
-              <span>{notice.priority} | {notice.status} | {notice.type}</span>
-              {notice.message ? <span>{notice.message}</span> : null}
-              <span>completion {shortId(notice.related_completion_id)} | user {shortId(notice.related_user_id)} | application {shortId(notice.related_application_id)}</span>
+              <strong>{row.title}</strong>
+              <span>{row.type} | {row.priority} | {row.status}</span>
+              <span>{shortText(row.message, 'No message', 180)}</span>
             </div>
             <div className="war-admin-row__actions">
-              <button type="button" onClick={() => void resolveNotification(notice.id)} disabled={notice.status === 'resolved'}>Resolve</button>
+              <StatusPill value={row.status} />
+              <button type="button" onClick={() => void resolveNotification(row.id)} disabled={row.status === 'resolved'}>Resolve</button>
             </div>
           </article>
         ))}
@@ -1182,67 +1134,116 @@ export default function WarAdminPage() {
   )
 
   const renderPrizes = () => (
-    <section className="war-panel">
-      <div className="war-section-head"><div><div className="war-kicker">Prizes</div><h2>{data?.prizePools?.length || 0} pools</h2></div></div>
-      <div className="war-two-col">
+    <section className="war-two-col">
+      <section className="war-panel">
+        <div className="war-section-head">
+          <div><div className="war-kicker">Prize pools</div><h2>{data?.prizePools?.length || 0} pools</h2></div>
+          <p>Current reward pools and status snapshots for weekly and seasonal mission incentives.</p>
+        </div>
         <div className="war-admin-list">
-          {(data?.prizePools || []).map((pool) => (
-            <article className="war-admin-row" key={pool.id}>
-              <div><strong>{pool.period_type} | {pool.status}</strong><span>{pool.reward_asset || 'reward'} {pool.reward_amount || ''}</span><span>{shortId(pool.id)} | {dateText(pool.created_at)}</span></div>
+          {(data?.prizePools || []).map((row) => (
+            <article className="war-admin-row" key={row.id}>
+              <div>
+                <strong>{row.period_type}</strong>
+                <span>{row.reward_asset || 'reward'} | amount {row.reward_amount ?? 0}</span>
+                <span>created {dateText(row.created_at)}</span>
+              </div>
+              <div className="war-admin-row__actions">
+                <StatusPill value={row.status} />
+              </div>
             </article>
           ))}
         </div>
+      </section>
+      <section className="war-panel">
+        <div className="war-section-head">
+          <div><div className="war-kicker">Winners</div><h2>{data?.prizeWinners?.length || 0} winners</h2></div>
+          <p>Reward winner records pulled from the latest prize distributions.</p>
+        </div>
         <div className="war-admin-list">
-          {(data?.prizeWinners || []).map((winner) => (
-            <article className="war-admin-row" key={winner.id}>
-              <div><strong>Winner #{winner.rank || '-'}</strong><span>{shortId(winner.wallet_address)} | {winner.status}</span><span>pool {shortId(winner.prize_pool_id)} | {winner.reward_amount || 0}</span></div>
+          {(data?.prizeWinners || []).map((row) => (
+            <article className="war-admin-row" key={row.id}>
+              <div>
+                <strong>{shortId(row.wallet_address)}</strong>
+                <span>pool {shortId(row.prize_pool_id)} | rank {row.rank ?? 'n/a'}</span>
+                <span>reward {row.reward_amount ?? 0}</span>
+              </div>
+              <div className="war-admin-row__actions">
+                <StatusPill value={row.status} />
+              </div>
             </article>
           ))}
         </div>
-      </div>
+      </section>
     </section>
   )
 
-  const renderActiveTab = () => {
-    if (activeTab === 'overview') return <><section className="war-panel"><div className="war-section-head"><div><div className="war-kicker">Live data</div><h2>Admin overview</h2></div><p>This console reads users, completions, recruiter applications, social accounts, logs, notifications, prizes, and XP from the Railway API.</p></div>{renderStats()}</section>{renderReviews()}</>
-    if (activeTab === 'reviews') return renderReviews()
-    if (activeTab === 'recruiters') return renderRecruiters()
-    if (activeTab === 'users') return renderUsers()
-    if (activeTab === 'social') return renderSocial()
-    if (activeTab === 'quizzes') return renderQuizzes()
-    if (activeTab === 'logs') return renderLogs()
-    if (activeTab === 'notifications') return renderNotifications()
-    return renderPrizes()
+  if (!admin) {
+    return (
+      <div className="war-missions-page war-admin-page">
+        <div className="war-missions-bg" />
+        <div className="war-missions-overlay" />
+        <header className="war-missions-top">
+          <Link to="/" className="war-missions-brand" aria-label="Back to missions home"><img src="/uptoken-brand.png" alt="UpToken" /></Link>
+        </header>
+        {renderLogin()}
+      </div>
+    )
   }
 
   return (
     <div className="war-missions-page war-admin-page">
-      <div className="war-missions-bg" aria-hidden="true" />
-      <div className="war-missions-overlay" aria-hidden="true" />
+      <div className="war-missions-bg" />
+      <div className="war-missions-overlay" />
       <header className="war-missions-top">
-        <Link to="/missions" className="war-missions-brand" aria-label="MemeWarzone War Missions"><img src="/logo.png" alt="MemeWarzone" /></Link>
-        <nav className="war-missions-nav" aria-label="War admin navigation"><Link to="/missions">Missions</Link><Link to="/missions/leaderboard">Leaderboard</Link><Link to="/missions/rewards">Rewards</Link></nav>
+        <Link to="/" className="war-missions-brand" aria-label="Back to missions home"><img src="/uptoken-brand.png" alt="UpToken" /></Link>
+        <nav className="war-missions-nav">
+          <a href="/">Missions</a>
+          <a href="/faq.html">FAQ</a>
+          <a href="https://uptoken.org" target="_blank" rel="noreferrer">UpToken</a>
+        </nav>
       </header>
-
-      {!admin ? renderLogin() : (
-        <main className="war-missions-shell">
-          <section className="war-panel war-admin-hero">
-            <div><div className="war-kicker">Command console</div><h1>War Missions Admin</h1><p>Logged in as {admin.username}</p></div>
-            <div className="war-admin-actions"><button type="button" className="war-secondary" onClick={() => void loadData()} disabled={busy === 'load'}>{busy === 'load' ? 'Refreshing...' : 'Refresh data'}</button><button type="button" className="war-secondary" onClick={() => void logout()} disabled={busy === 'logout'}>Logout</button></div>
-            {error ? <div className="war-alert">{error}</div> : null}
-            {message ? <div className="war-success">{message}</div> : null}
-          </section>
-
-          <section className="war-panel war-admin-toolbar">
-            <div className="war-admin-tabs">
-              {tabs.map((tab) => <button key={tab.key} type="button" className={activeTab === tab.key ? 'war-admin-tab war-admin-tab--active' : 'war-admin-tab'} onClick={() => setActiveTab(tab.key)}>{tab.label}</button>)}
+      <main className="war-missions-shell">
+        <section className="war-panel war-admin-hero">
+          <div>
+            <div className="war-kicker">Moderation + operations</div>
+            <h1>War Missions Admin</h1>
+            <p>Review completions, inspect user wallets, manage recruiter applications, tune quizzes, and resolve alerts without leaving the quest environment.</p>
+          </div>
+          <div className="war-admin-toolbar">
+            <div className="war-admin-actions">
+              <button type="button" onClick={() => void loadData()} disabled={busy === 'load'}>{busy === 'load' ? 'Refreshing...' : 'Refresh data'}</button>
+              <button type="button" onClick={() => void loadQuizQuestions()} disabled={busy === 'load-quizzes'}>{busy === 'load-quizzes' ? 'Refreshing...' : 'Refresh quizzes'}</button>
+              <button type="button" onClick={() => void logout()} disabled={busy === 'logout'}>{busy === 'logout' ? 'Logging out...' : 'Logout'}</button>
             </div>
-            <input className="war-admin-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search wallet, quest, recruiter, provider, username..." />
-          </section>
+            <input className="war-admin-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search wallets, quests, providers, notes" />
+          </div>
+        </section>
 
-          {renderActiveTab()}
-        </main>
-      )}
+        {message ? <div className="war-success">{message}</div> : null}
+        {error ? <div className="war-alert">{error}</div> : null}
+        {renderStats()}
+
+        <section className="war-panel">
+          <div className="war-admin-tabs">
+            {tabs.map((tab) => (
+              <button key={tab.key} type="button" className={tab.key === activeTab ? 'war-admin-tab war-admin-tab--active' : 'war-admin-tab'} onClick={() => { setExpandedId(''); setActiveTab(tab.key) }}>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {activeTab === 'overview' ? renderReviews() : null}
+        {activeTab === 'reviews' ? renderReviews() : null}
+        {activeTab === 'recruiters' ? renderRecruiters() : null}
+        {activeTab === 'users' ? renderUsers() : null}
+        {activeTab === 'social' ? renderSocial() : null}
+        {activeTab === 'quizzes' ? renderQuizzes() : null}
+        {activeTab === 'logs' ? renderLogs() : null}
+        {activeTab === 'notifications' ? renderNotifications() : null}
+        {activeTab === 'prizes' ? renderPrizes() : null}
+      </main>
     </div>
   )
 }
