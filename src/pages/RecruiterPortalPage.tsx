@@ -49,6 +49,9 @@ type WarMissionsResponse = {
   categories?: ApiCategory[]
 }
 
+const DEFAULT_COMMAND_CENTER_URL = 'https://memewarzonefrontend-production.up.railway.app/command/recruiter'
+const commandCenterUrl = String(import.meta.env.VITE_COMMAND_CENTER_RECRUITER_URL || DEFAULT_COMMAND_CENTER_URL).trim()
+
 function shorten(value: string) {
   return value ? `${value.slice(0, 6)}...${value.slice(-4)}` : ''
 }
@@ -146,14 +149,13 @@ export default function RecruiterPortalPage() {
           <div className="war-hero-copy">
             <div className="war-kicker">Command Center</div>
             <h1>Recruiter Portal</h1>
-            <p>Track recruiter readiness, watch approval status, and keep the reinforcement milestones visible without leaving the quest app.</p>
+            <p>Track recruiter readiness in War Missions, then jump into Command Center for referral links, recruiter management, and live squad operations.</p>
             <div className="war-hero-actions">
               <button type="button" className="war-primary" onClick={() => void signIn()} disabled={authing}>
                 {authing ? 'Waiting for signature...' : profile ? 'Wallet connected' : 'Connect wallet'}
               </button>
-              <Link to={approvedRole ? '/profile/squad' : '/recruiter/apply'} className="war-secondary">
-                {approvedRole ? 'Open squad view' : 'Finish application'}
-              </Link>
+              {approvedRole ? <Link to="/profile/squad" className="war-secondary">Open squad view</Link> : <Link to="/recruiter/apply" className="war-secondary">Finish application</Link>}
+              <a href={commandCenterUrl} target="_blank" rel="noreferrer" className="war-secondary">Open Command Center</a>
             </div>
             {error ? <div className="war-alert">{error}</div> : null}
           </div>
@@ -172,7 +174,7 @@ export default function RecruiterPortalPage() {
               <span className={profile ? 'war-checklist__done' : ''}>Wallet identity</span>
               <span className={applicationQuest?.status === 'verified' || applicationQuest?.status === 'review' ? 'war-checklist__done' : ''}>Application filed</span>
               <span className={approvedRole || approvedQuest?.status === 'verified' ? 'war-checklist__done' : ''}>Approved recruiter</span>
-              <span>Verified recruits</span>
+              <span className={approvedRole ? 'war-checklist__done' : ''}>Referral link management</span>
             </div>
           </aside>
         </section>
@@ -218,7 +220,7 @@ export default function RecruiterPortalPage() {
                 <div className="war-kicker">Milestones</div>
                 <h2>Referral ladder</h2>
               </div>
-              <p>These milestones are already present in the reinforcement category and can be reviewed here even before recruit data lands.</p>
+              <p>These milestones are already present in the reinforcement category and can be reviewed here while recruit attribution syncs in the backend.</p>
             </div>
             <div className="quest-list">
               {referralMilestones.length ? referralMilestones.map((quest) => (
