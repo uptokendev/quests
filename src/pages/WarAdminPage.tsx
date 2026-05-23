@@ -125,6 +125,25 @@ type PrizeWinner = {
   created_at?: string | null
 }
 
+type RecruiterApplication = {
+  id: string
+  userId: string
+  walletAddress: string
+  displayName: string | null
+  role: string
+  xUsername: string
+  telegramUsername: string
+  discordUsername: string
+  motivation: string
+  expectedRecruits: number | null
+  status: string
+  reviewedAt: string | null
+  createdAt: string | null
+  referralCode: string | null
+  referralUrl: string | null
+  verifiedRecruits: number
+}
+
 type AdminConsoleData = {
   ok?: boolean
   error?: string
@@ -135,6 +154,7 @@ type AdminConsoleData = {
   socialAccounts?: SocialAccount[]
   notifications?: AdminNotification[]
   verificationLogs?: VerificationLog[]
+  recruiterApplications?: RecruiterApplication[]
   prizePools?: PrizePool[]
   prizeWinners?: PrizeWinner[]
 }
@@ -208,11 +228,12 @@ type QuizTemplateDraft = {
   active: boolean
 }
 
-type TabKey = 'overview' | 'reviews' | 'users' | 'social' | 'quizzes' | 'logs' | 'notifications' | 'prizes'
+type TabKey = 'overview' | 'reviews' | 'recruiters' | 'users' | 'social' | 'quizzes' | 'logs' | 'notifications' | 'prizes'
 
 const tabs: Array<{ key: TabKey; label: string }> = [
   { key: 'overview', label: 'Overview' },
   { key: 'reviews', label: 'Reviews' },
+  { key: 'recruiters', label: 'Recruiters' },
   { key: 'users', label: 'Users' },
   { key: 'social', label: 'Social accounts' },
   { key: 'quizzes', label: 'Quiz bank' },
@@ -545,6 +566,19 @@ export default function WarAdminPage() {
     })
   })
 
+  const reviewRecruiterApplication = (applicationId: string, decision: 'accepted' | 'rejected') => runAction(
+    decision === 'accepted' ? 'Accept recruiter application' : 'Reject recruiter application',
+    async () => {
+      await apiPost('/api/wm-admin-recruiter-review', {
+        applicationId,
+        decision,
+        reason: decision === 'accepted'
+          ? 'Admin approved from recruiter review dashboard'
+          : 'Admin rejected from recruiter review dashboard',
+      })
+    },
+  )
+
   const resolveNotification = (id: string) => runAction('Resolve notification', async () => {
     const response = await fetch('/api/wm-admin-notifications-list', {
       method: 'PATCH',
@@ -692,6 +726,23 @@ export default function WarAdminPage() {
     ].some((value) => String(value || '').toLowerCase().includes(normalizedQuery)))
   }, [data?.completions, normalizedQuery])
 
+  const recruiterApplications = useMemo(() => {
+    const rows = data?.recruiterApplications || []
+    if (!normalizedQuery) return rows
+    return rows.filter((row) => [
+      row.walletAddress,
+      row.displayName,
+      row.role,
+      row.status,
+      row.xUsername,
+      row.telegramUsername,
+      row.discordUsername,
+      row.motivation,
+      row.referralCode,
+      row.referralUrl,
+    ].some((value) => String(value || '').toLowerCase().includes(normalizedQuery)))
+  }, [data?.recruiterApplications, normalizedQuery])
+
   const users = useMemo(() => {
     const rows = data?.users || []
     if (!normalizedQuery) return rows
@@ -789,6 +840,45 @@ export default function WarAdminPage() {
     </div>
   )
 
+  const renderRecruiterApplicationDetails = (row: RecruiterApplication) => (
+    <div className="war-admin-details">
+      <div className="war-admin-details__head">
+        <div>
+          <div className="war-kicker">Recruiter review</div>
+          <h3>{row.displayName || shortId(row.walletAddress)}</h3>
+        </div>
+        <div className="war-admin-row__actions">
+          <button type="button" onClick={() => void reviewRecruiterApplication(row.id, 'accepted')} disabled={row.status === 'accepted'}>Accept</button>
+          <button type="button" onClick={() => void reviewRecruiterApplication(row.id, 'rejected')} disabled={row.status === 'rejected'}>Reject</button>
+        </div>
+      </div>
+      <div className="war-admin-details__grid">
+        <div><strong>Application ID</strong><span>{row.id}</span></div>
+        <div><strong>Status</strong><span>{row.status}</span></div>
+        <div><strong>Wallet</strong><span>{row.walletAddress}</span></div>
+        <div><strong>Current role</strong><span>{row.role}</span></div>
+        <div><strong>X username</strong><span>{row.xUsername || 'none'}</span></div>
+        <div><strong>Telegram</strong><span>{row.telegramUsername || 'none'}</span></div>
+        <div><strong>Discord</strong><span>{row.discordUsername || 'none'}</span></div>
+        <div><strong>Expected recruits</strong><span>{row.expectedRecruits ?? 0}</span></div>
+        <div><strong>Verified recruits</strong><span>{row.verifiedRecruits}</span></div>
+        <div><strong>Created</strong><span>{dateText(row.createdAt)}</span></div>
+        <div><strong>Reviewed</strong><span>{dateText(row.reviewedAt)}</span></div>
+        <div><strong>Referral code</strong><span>{row.referralCode || 'not assigned yet'}</span></div>
+      </div>
+      <div className="war-admin-details__json-grid">
+        <div>
+          <strong>Motivation</strong>
+          <pre>{row.motivation || 'No motivation provided.'}</pre>
+        </div>
+        <div>
+          <strong>Referral info</strong>
+          <pre>{prettyJson({ referralCode: row.referralCode, referralUrl: row.referralUrl, verifiedRecruits: row.verifiedRecruits })}</pre>
+        </div>
+      </div>
+    </div>
+  )
+
   const renderReviews = () => (
     <section className="war-panel">
       <div className="war-section-head">
@@ -814,6 +904,36 @@ export default function WarAdminPage() {
             </article>
           )
         })}
+      </div>
+    </section>
+  )
+
+  const renderRecruiters = () => (
+    <section className="war-panel">
+      <div className="war-section-head">
+        <div><div className="war-kicker">Recruiter queue</div><h2>{recruiterApplications.length} recruiter applications</h2></div>
+        <p>Review incoming recruiter applications, approve the wallets that should receive a recruiter role, and reject weak submissions without leaving the admin console.</p>
+      </div>
+      <div className="war-admin-list">
+        {recruiterApplications.map((row) => {
+          const isExpanded = expandedId === row.id
+          return (
+            <article className={isExpanded ? 'war-admin-row war-admin-row--expanded' : 'war-admin-row'} key={row.id}>
+              <div>
+                <strong>{row.displayName || shortId(row.walletAddress)}</strong>
+                <span>{row.status} | role {row.role} | verified recruits {row.verifiedRecruits}</span>
+                <span>wallet {row.walletAddress}</span>
+                <span>{shortText(row.motivation, 'No motivation provided.', 180)}</span>
+              </div>
+              <div className="war-admin-row__actions">
+                <StatusPill value={row.status} />
+                <button type="button" onClick={() => setExpandedId(isExpanded ? '' : row.id)}>{isExpanded ? 'Close data' : 'Open data'}</button>
+              </div>
+              {isExpanded ? renderRecruiterApplicationDetails(row) : null}
+            </article>
+          )
+        })}
+        {!recruiterApplications.length ? <div className="war-alert">No recruiter applications match the current filters.</div> : null}
       </div>
     </section>
   )
@@ -1050,7 +1170,7 @@ export default function WarAdminPage() {
               <strong>{notice.title}</strong>
               <span>{notice.priority} | {notice.status} | {notice.type}</span>
               {notice.message ? <span>{notice.message}</span> : null}
-              <span>completion {shortId(notice.related_completion_id)} | user {shortId(notice.related_user_id)}</span>
+              <span>completion {shortId(notice.related_completion_id)} | user {shortId(notice.related_user_id)} | application {shortId(notice.related_application_id)}</span>
             </div>
             <div className="war-admin-row__actions">
               <button type="button" onClick={() => void resolveNotification(notice.id)} disabled={notice.status === 'resolved'}>Resolve</button>
@@ -1084,8 +1204,9 @@ export default function WarAdminPage() {
   )
 
   const renderActiveTab = () => {
-    if (activeTab === 'overview') return <><section className="war-panel"><div className="war-section-head"><div><div className="war-kicker">Live data</div><h2>Admin overview</h2></div><p>This console reads users, completions, social accounts, logs, notifications, prizes, and XP from the Railway API.</p></div>{renderStats()}</section>{renderReviews()}</>
+    if (activeTab === 'overview') return <><section className="war-panel"><div className="war-section-head"><div><div className="war-kicker">Live data</div><h2>Admin overview</h2></div><p>This console reads users, completions, recruiter applications, social accounts, logs, notifications, prizes, and XP from the Railway API.</p></div>{renderStats()}</section>{renderReviews()}</>
     if (activeTab === 'reviews') return renderReviews()
+    if (activeTab === 'recruiters') return renderRecruiters()
     if (activeTab === 'users') return renderUsers()
     if (activeTab === 'social') return renderSocial()
     if (activeTab === 'quizzes') return renderQuizzes()
@@ -1116,7 +1237,7 @@ export default function WarAdminPage() {
             <div className="war-admin-tabs">
               {tabs.map((tab) => <button key={tab.key} type="button" className={activeTab === tab.key ? 'war-admin-tab war-admin-tab--active' : 'war-admin-tab'} onClick={() => setActiveTab(tab.key)}>{tab.label}</button>)}
             </div>
-            <input className="war-admin-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search wallet, quest, provider, username..." />
+            <input className="war-admin-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search wallet, quest, recruiter, provider, username..." />
           </section>
 
           {renderActiveTab()}
