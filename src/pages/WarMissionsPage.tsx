@@ -5,6 +5,7 @@ import './WarMissionsPage.css'
 import './WarMissionsSimplified.css'
 
 type QuestStatus = 'ready' | 'pending' | 'review' | 'locked' | 'verified' | 'started' | 'rejected' | 'revoked' | 'expired'
+type RecruiterQuestState = 'not_started' | 'pending_review' | 'approved' | 'rejected'
 
 type Quest = {
   slug?: string
@@ -13,6 +14,8 @@ type Quest = {
   xp: string
   status: QuestStatus
   verificationType?: string
+  recruiterState?: RecruiterQuestState
+  rejectionReason?: string | null
 }
 
 type MissionCategory = {
@@ -99,6 +102,28 @@ type WarMissionsResponse = {
   error?: string
   profile?: WarProfile | null
   categories?: ApiCategory[]
+}
+
+type RecruiterStatusPayload = {
+  status: RecruiterQuestState
+  reason: string | null
+  source: string
+  checkedAt: string
+}
+
+type RecruiterStatusResponse = {
+  ok?: boolean
+  error?: string
+  recruiterStatus?: RecruiterStatusPayload
+}
+
+type RecruiterStatusCheckResponse = {
+  ok?: boolean
+  error?: string
+  recruiterStatus?: RecruiterStatusPayload
+  roleSynced?: boolean
+  questAwarded?: boolean
+  questAlreadyAwarded?: boolean
 }
 
 type LeaderboardRow = {
@@ -232,6 +257,8 @@ const badgeTypeLabels: Record<BadgeType, string> = {
 }
 
 const badgeTypeOrder: BadgeType[] = ['identity', 'mission', 'xp', 'streak', 'recruiter', 'manual']
+const DEFAULT_COMMAND_CENTER_URL = 'https://memewarzonefrontend-production.up.railway.app/command/recruiter'
+const commandCenterUrl = String(import.meta.env.VITE_COMMAND_CENTER_RECRUITER_URL || DEFAULT_COMMAND_CENTER_URL).trim()
 
 const fallbackBadges: ProfileBadge[] = [
   { slug: 'oathkeeper', title: 'Oathkeeper', description: 'Connect wallet and sign the War Missions oath.', type: 'identity', rarity: 'common', iconKey: 'oath', criteria: {}, displayOrder: 10, unlocked: false, awardedAt: null, source: null, reason: null },
@@ -299,12 +326,17 @@ const fallbackCategories: MissionCategory[] = [
     eyebrow: 'Recruiter growth',
     title: 'Operation: Reinforcements',
     accent: 'verified recruits only',
-    description: 'Apply for recruiter, get approved, generate links, and build verified squads.',
+    description: 'Recruiter signup happens in Command Center. Return here to check status and unlock verified squad milestones.',
     quests: [
-      { title: 'Apply for Recruiter Program', description: 'Submit the recruiter application.', xp: '500 XP', status: 'ready', verificationType: 'recruiter_application_submitted' },
-      { title: 'Get Accepted', description: 'Admin approves your recruiter profile.', xp: '2,000 XP', status: 'review' },
-      { title: 'Assemble a Fireteam', description: 'Bring in 2 verified recruits.', xp: '1,000 XP', status: 'locked' },
-      { title: 'Lead a Battalion', description: 'Bring in 20 verified recruits.', xp: '15,000 XP', status: 'locked' },
+      {
+        slug: 'accepted-recruiter-program',
+        title: 'Recruiter Program',
+        description: 'Open Command Center, complete signup there, then return here to check status and unlock recruiter progression.',
+        xp: '2,000 XP',
+        status: 'ready',
+        verificationType: 'recruiter_status_check',
+        recruiterState: 'not_started',
+      },
     ],
   },
 ]
@@ -362,18 +394,91 @@ function mapApiCategory(category: ApiCategory, isConnected: boolean): MissionCat
       xp: xpLabel(quest.xpReward),
       status: displayStatus(quest.status, quest.verificationType, isConnected),
       verificationType: quest.verificationType,
+      rejectionReason: quest.rejectionReason,
     })),
   }
 }
 
-function statusLabel(status: QuestStatus) {
-  if (status === 'verified') return 'Complete'
-  if (status === 'ready') return 'Ready'
-  if (status === 'pending' || status === 'started') return 'Metric check'
-  if (status === 'review') return 'Review'
-  if (status === 'rejected') return 'Rejected'
-  if (status === 'revoked') return 'Revoked'
-  if (status === 'expired') return 'Expired'
+function recruiterStateToQuestStatus(state?: RecruiterQuestState): QuestStatus {
+  switch (state) {
+    case 'pending_review':
+      return 'pending'
+    case 'approved':
+      return 'ready'
+    case 'rejected':
+      return 'rejected'
+    default:
+      return 'ready'
+  }
+}
+
+function recruiterDescription(status: RecruiterStatusPayload | null) {
+  switch (status?.status) {
+    case 'pending_review':
+      return 'Your Command Center recruiter signup is still under review. Check again here after approval to unlock recruiter quests.'
+    case 'approved':
+      return 'Command Center already shows this wallet as approved. Run the check here once to verify the quest and unlock recruiter milestones.'
+    case 'rejected':
+      return status.reason
+        ? `Your recruiter signup was rejected: ${status.reason}`
+        : 'Your recruiter signup was rejected. Update it in Command Center, then run the check again here.'
+    default:
+      return 'Open Command Center, complete recruiter signup there, then return here and run the status check.'
+  }
+}
+
+function recruiterStatusLabel(quest: Quest) {
+  switch (quest.recruiterState) {
+    case 'pending_review':
+      return 'Pending review'
+    case 'approved':
+      return 'Approved'
+    case 'rejected':
+      return 'Rejected'
+    default:
+      return 'Not started'
+  }
+}
+
+function normalizeReinforcementsCategory(category: MissionCategory, recruiterStatus: RecruiterStatusPayload | null) {
+  const approvalQuest = category.quests.find((quest) => quest.verificationType === 'recruiter_application_accepted' || /accepted/i.test(quest.title)) || null
+  const followUpQuests = category.quests.filter((quest) => !['recruiter_application_submitted', 'recruiter_application_accepted'].includes(quest.verificationType || ''))
+
+  if (approvalQuest?.status === 'verified') {
+    return {
+      ...category,
+      description: 'Recruiter approval is confirmed. Verified recruit milestones now unlock from the same War Missions profile.',
+      quests: [approvalQuest, ...followUpQuests],
+    }
+  }
+
+  return {
+    ...category,
+    description: 'Recruiter signup happens in Command Center. Return here to check status and unlock verified squad milestones.',
+    quests: [
+      {
+        slug: approvalQuest?.slug || 'accepted-recruiter-program',
+        title: 'Recruiter Program',
+        description: recruiterDescription(recruiterStatus),
+        xp: approvalQuest?.xp || '2,000 XP',
+        status: recruiterStateToQuestStatus(recruiterStatus?.status),
+        verificationType: 'recruiter_status_check',
+        recruiterState: recruiterStatus?.status || 'not_started',
+        rejectionReason: recruiterStatus?.reason || null,
+      },
+    ],
+  }
+}
+
+function statusLabel(quest: Quest) {
+  if (quest.verificationType === 'recruiter_status_check') return recruiterStatusLabel(quest)
+  if (quest.status === 'verified') return 'Complete'
+  if (quest.status === 'ready') return 'Ready'
+  if (quest.status === 'pending' || quest.status === 'started') return 'Metric check'
+  if (quest.status === 'review') return 'Review'
+  if (quest.status === 'rejected') return 'Rejected'
+  if (quest.status === 'revoked') return 'Revoked'
+  if (quest.status === 'expired') return 'Expired'
   return 'Locked'
 }
 
@@ -417,6 +522,7 @@ export default function WarMissionsPage() {
   const [missionsData, setMissionsData] = useState<WarMissionsResponse | null>(null)
   const [badgesData, setBadgesData] = useState<BadgesResponse | null>(null)
   const [socialStatus, setSocialStatus] = useState<SocialStatusResponse | null>(null)
+  const [recruiterStatus, setRecruiterStatus] = useState<RecruiterStatusPayload | null>(null)
   const [leaderboardRows, setLeaderboardRows] = useState<LeaderboardRow[]>([])
   const [prizePools, setPrizePools] = useState<PrizePool[]>([])
   const [prizeWinners, setPrizeWinners] = useState<PrizeWinner[]>([])
@@ -475,6 +581,17 @@ export default function WarMissionsPage() {
     }
   }
 
+  const loadRecruiterStatus = async () => {
+    try {
+      const response = await fetch('/api/wm-recruiter-status', { credentials: 'same-origin', cache: 'no-store' })
+      const data = (await response.json().catch(() => ({}))) as RecruiterStatusResponse
+      if (!response.ok || !data?.ok || !data.recruiterStatus) throw new Error(data.error || 'Recruiter status unavailable.')
+      setRecruiterStatus(data.recruiterStatus)
+    } catch {
+      setRecruiterStatus(null)
+    }
+  }
+
   useEffect(() => { void loadMissions() }, [])
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 30000)
@@ -483,15 +600,23 @@ export default function WarMissionsPage() {
   useEffect(() => {
     if (!profile) {
       setSocialStatus(null)
+      setRecruiterStatus(null)
       return
     }
-    void loadSocialStatus()
+    void Promise.all([loadSocialStatus(), loadRecruiterStatus()])
   }, [profile?.id])
 
   const categories = useMemo(() => {
-    if (missionsData?.categories?.length) return missionsData.categories.map((category) => mapApiCategory(category, isConnected))
-    return fallbackCategories
-  }, [isConnected, missionsData])
+    const base = missionsData?.categories?.length
+      ? missionsData.categories.map((category) => mapApiCategory(category, isConnected))
+      : fallbackCategories
+
+    return base.map((category) => (
+      category.slug === 'reinforcements'
+        ? normalizeReinforcementsCategory(category, recruiterStatus)
+        : category
+    ))
+  }, [isConnected, missionsData, recruiterStatus])
 
   const visibleCategories = useMemo(() => {
     if (!section) return categories
@@ -545,7 +670,7 @@ export default function WarMissionsPage() {
     if (profile?.role === 'recruiter' || profile?.role === 'admin') {
       return { to: '/recruiter/portal', label: 'Open recruiter portal' }
     }
-    return { to: '/recruiter/apply', label: 'Apply as recruiter' }
+    return { to: '/recruiter/apply', label: 'Recruiter status' }
   }, [profile?.role])
 
   const signIn = async () => {
@@ -566,7 +691,7 @@ export default function WarMissionsPage() {
       const verifyData = await verifyResponse.json().catch(() => ({}))
       if (!verifyResponse.ok || !verifyData?.ok) throw new Error(verifyData?.error || 'Wallet sign-in failed.')
       await loadMissions()
-      await loadSocialStatus()
+      await Promise.all([loadSocialStatus(), loadRecruiterStatus()])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Wallet sign-in failed.')
     } finally {
@@ -626,6 +751,32 @@ export default function WarMissionsPage() {
     })
     const data = (await response.json().catch(() => ({}))) as XFollowCheckResponse
     if (!response.ok || !data?.ok) throw new Error(data?.error || 'X follow check failed.')
+    return data
+  }
+
+  const checkRecruiterStatus = async () => {
+    const response = await fetch('/api/wm-recruiter-status-check', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const data = (await response.json().catch(() => ({}))) as RecruiterStatusCheckResponse
+    if (!response.ok || !data?.ok || !data.recruiterStatus) throw new Error(data?.error || 'Recruiter status check failed.')
+
+    setRecruiterStatus(data.recruiterStatus)
+
+    if (data.recruiterStatus.status === 'approved') {
+      setActionMessage(data.questAwarded
+        ? 'Recruiter approval confirmed. Quest verified and recruiter milestones unlocked.'
+        : 'Recruiter approval is already synced. Recruiter milestones are ready.' )
+    } else if (data.recruiterStatus.status === 'pending_review') {
+      setActionMessage('Recruiter signup is still pending review in Command Center.')
+    } else if (data.recruiterStatus.status === 'rejected') {
+      setActionMessage(data.recruiterStatus.reason || 'Recruiter signup is currently rejected in Command Center.')
+    } else {
+      setActionMessage('No recruiter signup was found yet. Open Command Center to get started.')
+    }
+
     return data
   }
 
@@ -783,6 +934,20 @@ export default function WarMissionsPage() {
     setActionMessage('')
     setError('')
 
+    if (quest.verificationType === 'recruiter_status_check') {
+      setActionBusy(quest.slug)
+      try {
+        await checkRecruiterStatus()
+        await loadMissions()
+        await loadRecruiterStatus()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Recruiter status check failed.')
+      } finally {
+        setActionBusy('')
+      }
+      return
+    }
+
     if (quest.verificationType === 'docs_quiz') {
       setActionBusy(quest.slug)
       try {
@@ -820,6 +985,7 @@ export default function WarMissionsPage() {
   const questActionLabel = (quest: Quest) => {
     if (quest.status === 'verified') return 'Done'
     if (quest.status === 'locked') return 'Locked'
+    if (quest.verificationType === 'recruiter_status_check') return 'Check status'
     if (quest.verificationType === 'docs_quiz') return 'Open quiz'
     if (quest.verificationType === 'recruiter_application_submitted') return profile?.role === 'recruiter' || profile?.role === 'admin' ? 'Open portal' : 'Apply now'
     if (quest.verificationType === 'wallet_connect') return 'Sign'
@@ -923,10 +1089,21 @@ export default function WarMissionsPage() {
                         <div>
                           <div className="quest-row__title">{quest.title}</div>
                           <div className="quest-row__text">{quest.description}</div>
-                          {quest.verificationType === 'recruiter_application_submitted' && profile?.role !== 'recruiter' && profile?.role !== 'admin' ? <div className="quest-row__hint">Application now opens the dedicated recruiter form instead of a browser prompt.</div> : null}
+                          {quest.verificationType === 'recruiter_status_check' ? <div className="quest-row__hint">Command Center is the only signup path. Open it there, then run the status check here to unlock recruiter milestones.</div> : null}
                           {quest.verificationType === 'docs_quiz' ? <div className="quest-row__hint">Quiz now runs inside the app so users can review every question before submitting.</div> : null}
                         </div>
-                        <div className="quest-row__meta"><strong>{quest.xp}</strong><span className={`quest-status quest-status--${quest.status}`}>{statusLabel(quest.status)}</span><button type="button" className="quest-action" disabled={quest.status === 'locked' || quest.status === 'verified' || actionBusy === quest.slug} onClick={() => void runQuestAction(quest)}>{actionBusy === quest.slug ? 'Checking...' : questActionLabel(quest)}</button></div>
+                        <div className="quest-row__meta">
+                          <strong>{quest.xp}</strong>
+                          <span className={`quest-status quest-status--${quest.status}`}>{statusLabel(quest)}</span>
+                          {quest.verificationType === 'recruiter_status_check' ? (
+                            <div className="quest-row__actions">
+                              <a href={commandCenterUrl} target="_blank" rel="noreferrer" className="quest-action quest-action--secondary">Open Command Center</a>
+                              <button type="button" className="quest-action" disabled={actionBusy === quest.slug} onClick={() => void runQuestAction(quest)}>{actionBusy === quest.slug ? 'Checking...' : questActionLabel(quest)}</button>
+                            </div>
+                          ) : (
+                            <button type="button" className="quest-action" disabled={quest.status === 'locked' || quest.status === 'verified' || actionBusy === quest.slug} onClick={() => void runQuestAction(quest)}>{actionBusy === quest.slug ? 'Checking...' : questActionLabel(quest)}</button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
