@@ -3,6 +3,7 @@ import AdminTabPage from './pages/AdminTabPage'
 import SocialIdentityPanel from './components/SocialIdentityPanel'
 import RecruiterApplyPage from './pages/RecruiterApplyPage'
 import RecruiterPortalPage from './pages/RecruiterPortalPage'
+import RecruiterSquadPage from './pages/RecruiterSquadPage'
 import WarAdminPage from './pages/WarAdminPage'
 import WarMissionsPage from './pages/WarMissionsPage'
 
@@ -14,7 +15,7 @@ export default function App() {
         <Route path="/missions" element={<WarMissionsPage />} />
         <Route path="/missions/:section" element={<WarMissionsPage />} />
         <Route path="/profile/missions" element={<WarMissionsPage />} />
-        <Route path="/profile/squad" element={<WarMissionsPage />} />
+        <Route path="/profile/squad" element={<RecruiterSquadPage />} />
         <Route path="/recruiter/apply" element={<RecruiterApplyPage />} />
         <Route path="/recruiter/portal" element={<RecruiterPortalPage />} />
         <Route path="/admin/missions" element={<WarAdminPage />} />
