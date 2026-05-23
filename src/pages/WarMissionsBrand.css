@@ -1,0 +1,265 @@
+.war-missions-page:not(.war-admin-page) {
+  --wm-brand-bg: #0b0e12;
+  --wm-brand-bg-2: #141920;
+  --wm-brand-panel: rgba(23, 26, 31, 0.94);
+  --wm-brand-panel-soft: rgba(16, 18, 23, 0.9);
+  --wm-brand-line: rgba(255, 153, 0, 0.24);
+  --wm-brand-line-strong: rgba(255, 193, 100, 0.5);
+  --wm-brand-copy: rgba(245, 239, 228, 0.92);
+  --wm-brand-copy-dim: rgba(206, 195, 176, 0.74);
+  --wm-brand-accent: #ff9900;
+  --wm-brand-accent-soft: #ffd089;
+}
+
+.war-missions-page:not(.war-admin-page) {
+  color: var(--wm-brand-copy);
+  background:
+    radial-gradient(circle at top left, rgba(255, 153, 0, 0.13), transparent 30%),
+    radial-gradient(circle at 86% 12%, rgba(255, 208, 137, 0.08), transparent 18%),
+    linear-gradient(180deg, #090c10 0%, #12161c 42%, #080a0d 100%);
+}
+
+.war-missions-page:not(.war-admin-page)::before {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 30px 30px;
+  opacity: 0.34;
+}
+
+.war-missions-page:not(.war-admin-page)::after {
+  background:
+    linear-gradient(180deg, rgba(255, 153, 0, 0.06), transparent 26%),
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.03), transparent);
+  mix-blend-mode: normal;
+  opacity: 0.5;
+}
+
+.war-missions-page:not(.war-admin-page) .war-missions-bg {
+  opacity: 0.12;
+  filter: saturate(0.42) brightness(0.72);
+}
+
+.war-missions-page:not(.war-admin-page) .war-missions-overlay {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255, 153, 0, 0.16), transparent 26%),
+    radial-gradient(circle at 100% 8%, rgba(255, 204, 122, 0.08), transparent 20%);
+}
+
+.war-missions-page:not(.war-admin-page) .war-missions-brand,
+.war-missions-page:not(.war-admin-page) .war-missions-nav a,
+.war-missions-page:not(.war-admin-page) .war-hero-copy,
+.war-missions-page:not(.war-admin-page) .war-status-card,
+.war-missions-page:not(.war-admin-page) .war-panel,
+.war-missions-page:not(.war-admin-page) .war-stat,
+.war-missions-page:not(.war-admin-page) .mission-card,
+.war-missions-page:not(.war-admin-page) .quest-row,
+.war-missions-page:not(.war-admin-page) .war-badge-card,
+.war-missions-page:not(.war-admin-page) .leaderboard-empty,
+.war-missions-page:not(.war-admin-page) .leaderboard-row,
+.war-missions-page:not(.war-admin-page) .review-list span,
+.war-missions-page:not(.war-admin-page) .war-reward-row,
+.war-missions-page:not(.war-admin-page) .war-modal,
+.war-missions-page:not(.war-admin-page) .war-quiz-card,
+.war-missions-page:not(.war-admin-page) .war-checklist span,
+.war-missions-page:not(.war-admin-page) .war-route-chip,
+.war-missions-page:not(.war-admin-page) .war-quiz-option,
+.war-missions-page:not(.war-admin-page) .war-badge-dot,
+.war-missions-page:not(.war-admin-page) .war-badge-medallion {
+  border-radius: 20px;
+}
+
+.war-missions-page:not(.war-admin-page) .war-hero-copy,
+.war-missions-page:not(.war-admin-page) .war-status-card,
+.war-missions-page:not(.war-admin-page) .war-panel,
+.war-missions-page:not(.war-admin-page) .war-stat,
+.war-missions-page:not(.war-admin-page) .mission-card,
+.war-missions-page:not(.war-admin-page) .quest-row,
+.war-missions-page:not(.war-admin-page) .war-badge-card,
+.war-missions-page:not(.war-admin-page) .leaderboard-empty,
+.war-missions-page:not(.war-admin-page) .leaderboard-row,
+.war-missions-page:not(.war-admin-page) .review-list span,
+.war-missions-page:not(.war-admin-page) .war-reward-row,
+.war-missions-page:not(.war-admin-page) .war-modal,
+.war-missions-page:not(.war-admin-page) .war-quiz-card,
+.war-missions-page:not(.war-admin-page) .war-checklist span,
+.war-missions-page:not(.war-admin-page) .war-route-chip {
+  border-color: var(--wm-brand-line);
+  background:
+    linear-gradient(180deg, rgba(25, 28, 34, 0.97), rgba(13, 15, 19, 0.98)),
+    linear-gradient(90deg, rgba(255, 153, 0, 0.03), transparent 34%, rgba(255, 255, 255, 0.03));
+  box-shadow:
+    0 28px 80px -40px rgba(0, 0, 0, 0.96),
+    0 0 0 1px rgba(255, 153, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.war-missions-page:not(.war-admin-page) .war-hero-copy::before,
+.war-missions-page:not(.war-admin-page) .war-status-card::before,
+.war-missions-page:not(.war-admin-page) .war-panel::before,
+.war-missions-page:not(.war-admin-page) .war-stat::before,
+.war-missions-page:not(.war-admin-page) .mission-card::before,
+.war-missions-page:not(.war-admin-page) .quest-row::before,
+.war-missions-page:not(.war-admin-page) .war-badge-card::before,
+.war-missions-page:not(.war-admin-page) .leaderboard-empty::before,
+.war-missions-page:not(.war-admin-page) .leaderboard-row::before,
+.war-missions-page:not(.war-admin-page) .review-list span::before,
+.war-missions-page:not(.war-admin-page) .war-reward-row::before,
+.war-missions-page:not(.war-admin-page) .war-modal::before,
+.war-missions-page:not(.war-admin-page) .war-quiz-card::before,
+.war-missions-page:not(.war-admin-page) .war-checklist span::before {
+  display: none;
+}
+
+.war-missions-page:not(.war-admin-page) .war-kicker,
+.war-missions-page:not(.war-admin-page) .mission-card__eyebrow,
+.war-missions-page:not(.war-admin-page) .war-status-card__label,
+.war-missions-page:not(.war-admin-page) .war-stat__label,
+.war-missions-page:not(.war-admin-page) .war-field span,
+.war-missions-page:not(.war-admin-page) .war-quiz-card__count,
+.war-missions-page:not(.war-admin-page) .war-quiz-progress,
+.war-missions-page:not(.war-admin-page) .war-badge-card__meta,
+.war-missions-page:not(.war-admin-page) .war-badge-group__head span,
+.war-missions-page:not(.war-admin-page) .quest-status {
+  color: var(--wm-brand-accent-soft);
+}
+
+.war-missions-page:not(.war-admin-page) .war-hero-copy::after {
+  background:
+    linear-gradient(90deg, rgba(13, 15, 19, 0.96) 0%, rgba(13, 15, 19, 0.8) 48%, rgba(13, 15, 19, 0.5) 100%),
+    radial-gradient(circle at 84% 18%, rgba(255, 153, 0, 0.2), transparent 22%);
+}
+
+.war-missions-page:not(.war-admin-page) .war-hero h1,
+.war-missions-page:not(.war-admin-page) .war-section-head h2,
+.war-missions-page:not(.war-admin-page) .war-panel h2,
+.war-missions-page:not(.war-admin-page) .war-rewards-column h3,
+.war-missions-page:not(.war-admin-page) .mission-card h3,
+.war-missions-page:not(.war-admin-page) .war-quiz-card h3,
+.war-missions-page:not(.war-admin-page) .war-status-card__title,
+.war-missions-page:not(.war-admin-page) .war-stat__value {
+  color: #fff4df;
+  text-shadow: none;
+}
+
+.war-missions-page:not(.war-admin-page) .war-hero p,
+.war-missions-page:not(.war-admin-page) .war-section-head p,
+.war-missions-page:not(.war-admin-page) .mission-card p,
+.war-missions-page:not(.war-admin-page) .war-status-card p,
+.war-missions-page:not(.war-admin-page) .leaderboard-empty,
+.war-missions-page:not(.war-admin-page) .war-modal__copy,
+.war-missions-page:not(.war-admin-page) .war-badge-card__text,
+.war-missions-page:not(.war-admin-page) .quest-row__text,
+.war-missions-page:not(.war-admin-page) .war-reward-row span,
+.war-missions-page:not(.war-admin-page) .war-admin-row span,
+.war-missions-page:not(.war-admin-page) .war-stat__help,
+.war-missions-page:not(.war-admin-page) .quest-row__hint,
+.war-missions-page:not(.war-admin-page) .leaderboard-row em,
+.war-missions-page:not(.war-admin-page) .war-route-chip span {
+  color: var(--wm-brand-copy-dim);
+}
+
+.war-missions-page:not(.war-admin-page) .war-missions-nav a,
+.war-missions-page:not(.war-admin-page) .war-primary,
+.war-missions-page:not(.war-admin-page) .war-secondary,
+.war-missions-page:not(.war-admin-page) .quest-action,
+.war-missions-page:not(.war-admin-page) .war-modal__close,
+.war-missions-page:not(.war-admin-page) .war-route-chip {
+  border-radius: 999px;
+}
+
+.war-missions-page:not(.war-admin-page) .war-missions-nav a,
+.war-missions-page:not(.war-admin-page) .war-primary,
+.war-missions-page:not(.war-admin-page) .war-secondary,
+.war-missions-page:not(.war-admin-page) .quest-action,
+.war-missions-page:not(.war-admin-page) .war-modal__close,
+.war-missions-page:not(.war-admin-page) .war-route-chip,
+.war-missions-page:not(.war-admin-page) .war-quiz-option {
+  border-color: rgba(255, 153, 0, 0.24);
+  background: linear-gradient(180deg, rgba(33, 37, 44, 0.96), rgba(17, 20, 25, 0.98));
+  color: var(--wm-brand-copy);
+}
+
+.war-missions-page:not(.war-admin-page) .war-primary,
+.war-missions-page:not(.war-admin-page) .mission-card__top span,
+.war-missions-page:not(.war-admin-page) .war-route-chip--active,
+.war-missions-page:not(.war-admin-page) .war-route-chip:hover,
+.war-missions-page:not(.war-admin-page) .war-route-chip:focus-visible,
+.war-missions-page:not(.war-admin-page) .war-quiz-option--active {
+  color: #2a1708;
+  border-color: rgba(255, 198, 112, 0.86);
+  background: linear-gradient(180deg, #ffbf60, #ff9800);
+  box-shadow:
+    0 12px 28px -20px rgba(255, 153, 0, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.war-missions-page:not(.war-admin-page) .war-missions-nav a:hover,
+.war-missions-page:not(.war-admin-page) .war-missions-nav a:focus-visible,
+.war-missions-page:not(.war-admin-page) .war-secondary:hover,
+.war-missions-page:not(.war-admin-page) .war-secondary:focus-visible,
+.war-missions-page:not(.war-admin-page) .quest-action:hover,
+.war-missions-page:not(.war-admin-page) .quest-action:focus-visible,
+.war-missions-page:not(.war-admin-page) .war-modal__close:hover,
+.war-missions-page:not(.war-admin-page) .war-modal__close:focus-visible,
+.war-missions-page:not(.war-admin-page) .war-quiz-option:hover,
+.war-missions-page:not(.war-admin-page) .war-quiz-option:focus-visible {
+  border-color: rgba(255, 184, 77, 0.56);
+  color: #fff8ec;
+  background: linear-gradient(180deg, rgba(49, 35, 16, 0.98), rgba(28, 20, 10, 0.98));
+}
+
+.war-missions-page:not(.war-admin-page) .war-field input,
+.war-missions-page:not(.war-admin-page) .war-field textarea {
+  border-radius: 16px;
+  border-color: rgba(255, 153, 0, 0.2);
+  background: linear-gradient(180deg, rgba(15, 17, 22, 0.98), rgba(9, 11, 15, 0.98));
+  color: var(--wm-brand-copy);
+}
+
+.war-missions-page:not(.war-admin-page) .war-field input:focus,
+.war-missions-page:not(.war-admin-page) .war-field textarea:focus {
+  outline: none;
+  border-color: rgba(255, 184, 77, 0.62);
+  box-shadow: 0 0 0 3px rgba(255, 153, 0, 0.12);
+}
+
+.war-missions-page:not(.war-admin-page) .war-badge-dot,
+.war-missions-page:not(.war-admin-page) .war-badge-medallion {
+  border-color: rgba(255, 153, 0, 0.26);
+  background: linear-gradient(180deg, rgba(34, 38, 46, 0.96), rgba(16, 18, 22, 0.98));
+  color: #ffe1a8;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.war-missions-page:not(.war-admin-page) .war-badge-card--unlocked {
+  border-color: rgba(255, 184, 77, 0.4);
+}
+
+.war-missions-page:not(.war-admin-page) .leaderboard-row span {
+  color: var(--wm-brand-accent-soft);
+}
+
+.war-missions-page:not(.war-admin-page) .quest-status {
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid currentColor;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.war-missions-page:not(.war-admin-page) .quest-status--ready,
+.war-missions-page:not(.war-admin-page) .quest-status--verified {
+  color: #ffd089;
+}
+
+.war-missions-page:not(.war-admin-page) .quest-status--pending,
+.war-missions-page:not(.war-admin-page) .quest-status--started,
+.war-missions-page:not(.war-admin-page) .quest-status--review {
+  color: #ffe5b8;
+}
+
+.war-missions-page:not(.war-admin-page) .quest-status--rejected,
+.war-missions-page:not(.war-admin-page) .quest-status--revoked,
+.war-missions-page:not(.war-admin-page) .quest-status--expired {
+  color: #ff9b83;
+}
