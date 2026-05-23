@@ -442,7 +442,7 @@ function recruiterStatusLabel(quest: Quest) {
 
 function normalizeReinforcementsCategory(category: MissionCategory, recruiterStatus: RecruiterStatusPayload | null) {
   const approvalQuest = category.quests.find((quest) => quest.verificationType === 'recruiter_application_accepted' || /accepted/i.test(quest.title)) || null
-  const followUpQuests = category.quests.filter((quest) => !['recruiter_application_submitted', 'recruiter_application_accepted'].includes(quest.verificationType || ''))
+  const followUpQuests = category.quests.filter((quest) => quest !== approvalQuest && quest.verificationType !== 'recruiter_application_submitted')
 
   if (approvalQuest?.status === 'verified') {
     return {
