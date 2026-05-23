@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { connectWallet } from '../lib/wallet'
 import './WarMissionsPage.css'
 import './WarMissionsSimplified.css'
+import './WarMissionsBrand.css'
 
 type QuestStatus = 'ready' | 'pending' | 'review' | 'locked' | 'verified' | 'started' | 'rejected' | 'revoked' | 'expired'
 type RecruiterQuestState = 'not_started' | 'pending_review' | 'approved' | 'rejected'
@@ -626,74 +627,77 @@ export default function WarMissionsPage() {
 
   const stats = useMemo(() => {
     const pendingReview = categories.reduce((total, category) => total + category.quests.filter((quest) => ['pending', 'review', 'started'].includes(quest.status)).length, 0)
-    const leaderboardRank = profile ? leaderboardRows.find((row) => row.userId === profile.id)?.rank || 'Unranked' : '0'
-    const resetAt = profile?.dailyProgress?.resetAt ? new Date(profile.dailyProgress.resetAt).getTime() : 0
-    const resetMinutes = resetAt > nowMs ? Math.ceil((resetAt - nowMs) / 60000) : 0
+    const leaderboardRank = profile ? leaderboardRows.find((row) => row.walletAddress === profile.walletAddress)?.rank : null
+    const resetAt = profile?.dailyProgress?.resetAt || null
+    const millisUntilReset = resetAt ? Math.max(0, new Date(resetAt).getTime() - nowMs) : 0
+    const hours = Math.floor(millisUntilReset / 3_600_000)
+    const minutes = Math.floor((millisUntilReset % 3_600_000) / 60_000)
     return [
-      { label: 'Total XP', value: profile ? profile.xpTotal.toLocaleString() : '0', help: 'Ledger backed' },
-      { label: 'Daily streak', value: profile ? String(profile.dailyProgress.streakCount) : '0', help: resetMinutes ? `Reset in ${resetMinutes}m` : 'UTC reset' },
-      { label: 'Pending review', value: String(pendingReview), help: 'Admin queue' },
-      { label: 'Weekly rank', value: String(leaderboardRank), help: 'Active XP' },
+      { label: 'Active XP', value: (profile?.xpTotal || 0).toLocaleString(), help: profile ? `${profile.completedQuestSlugs.length} verified quests` : 'Connect wallet to start earning.' },
+      { label: 'Daily streak', value: profile?.dailyProgress?.streakCount || 0, help: resetAt ? `Reset in ${hours}h ${minutes}m` : 'Connect to unlock streak tracking.' },
+      { label: 'Weekly rank', value: leaderboardRank || '---', help: leaderboardRows.length ? `${leaderboardRows.length} ranked soldiers` : 'Leaderboard loads from the live XP ledger.' },
+      { label: 'Open reviews', value: pendingReview, help: pendingReview ? 'Manual checks and metric queues.' : 'Nothing waiting for admin review.' },
     ]
   }, [categories, leaderboardRows, nowMs, profile])
 
-  const badges = useMemo(() => profile?.badges || badgesData?.badges || fallbackBadges, [badgesData, profile])
-  const badgeSummary = useMemo(() => profile?.badgeSummary || badgesData?.badgeSummary || summarizeFallbackBadges(badges), [badges, badgesData, profile])
-  const unlockedBadges = useMemo(() => badges.filter((badge) => badge.unlocked), [badges])
-  const badgeGroups = useMemo(() => badgeTypeOrder.map((type) => ({ type, label: badgeTypeLabels[type], badges: badges.filter((badge) => badge.type === type) })).filter((group) => group.badges.length > 0), [badges])
+  const badgeSummary = badgesData?.badgeSummary || summarizeFallbackBadges(fallbackBadges)
+  const playerBadges = badgesData?.badges || fallbackBadges
+  const unlockedBadges = playerBadges.filter((badge) => badge.unlocked)
 
-  const linkedProviders = useMemo(() => new Set((socialStatus?.accounts || []).map((account) => account.provider)), [socialStatus])
-  const identityChecks = useMemo<IdentityCheck[]>(() => [
-    { label: 'Wallet signature', done: Boolean(profile), hint: profile ? shorten(profile.walletAddress) : 'Required to unlock live quests' },
-    { label: 'X account', done: linkedProviders.has('x'), hint: linkedProviders.has('x') ? 'Connected for social verification' : 'Connect once when prompted by an X quest' },
-    { label: 'Telegram identity', done: linkedProviders.has('telegram'), hint: linkedProviders.has('telegram') ? 'Ready for join checks' : 'Connect once before running Telegram join quests' },
-    { label: 'Discord identity', done: linkedProviders.has('discord'), hint: linkedProviders.has('discord') ? 'Ready for join checks' : 'Connect once before running Discord join quests' },
-  ], [linkedProviders, profile])
+  const badgeGroups = useMemo(() => {
+    return badgeTypeOrder.map((type) => ({
+      type,
+      label: badgeTypeLabels[type],
+      badges: playerBadges
+        .filter((badge) => badge.type === type)
+        .sort((a, b) => a.displayOrder - b.displayOrder),
+    })).filter((group) => group.badges.length > 0)
+  }, [playerBadges])
 
-  const reviewQueue = useMemo(() => categories
-    .map((category) => ({
+  const identityChecks = useMemo<IdentityCheck[]>(() => {
+    const connectedProviders = new Set((socialStatus?.accounts || []).map((account) => account.provider))
+    return [
+      { label: 'Wallet signature', done: Boolean(profile), hint: profile ? shorten(profile.walletAddress) : 'Sign the mission wallet challenge.' },
+      { label: 'Telegram connected', done: connectedProviders.has('telegram'), hint: connectedProviders.has('telegram') ? 'Ready for join checks.' : 'Connect once, then run growth quests.' },
+      { label: 'Discord connected', done: connectedProviders.has('discord'), hint: connectedProviders.has('discord') ? 'Server checks unlocked.' : 'Connect once for membership verification.' },
+      { label: 'X connected', done: connectedProviders.has('x'), hint: connectedProviders.has('x') ? 'Follow checks unlocked.' : 'Connect X for campaign follow quests.' },
+    ]
+  }, [profile, socialStatus])
+
+  const reviewQueue = useMemo(() => {
+    return categories
+      .map((category) => {
+        const count = category.quests.filter((quest) => quest.status === 'pending' || quest.status === 'review' || quest.status === 'started').length
+        return { slug: category.slug, title: category.title, count }
+      })
+      .filter((entry) => entry.count > 0)
+      .sort((a, b) => b.count - a.count)
+  }, [categories])
+
+  const recruiterCta = recruiterStatus?.status === 'approved'
+    ? { label: 'Recruiter Portal', to: '/recruiter/portal' }
+    : { label: 'Command Center', to: commandCenterUrl }
+
+  const missionLinks = useMemo(() => {
+    return categories.map((category) => ({
       slug: category.slug,
       title: category.title,
-      count: category.quests.filter((quest) => ['pending', 'review', 'started'].includes(quest.status)).length,
+      accent: category.accent,
+      active: section === category.slug || (!section && category.slug === visibleCategories[0]?.slug),
     }))
-    .filter((entry) => entry.count > 0)
-    .sort((a, b) => b.count - a.count), [categories])
-
-  const missionLinks = useMemo(() => categories.map((category) => ({
-    slug: category.slug,
-    title: category.title,
-    accent: category.accent,
-    active: section === category.slug || (!section && category.slug === 'start-here'),
-  })), [categories, section])
-
-  const recruiterCta = useMemo(() => {
-    if (profile?.role === 'recruiter' || profile?.role === 'admin') {
-      return { to: '/recruiter/portal', label: 'Open recruiter portal' }
-    }
-    return { to: '/recruiter/apply', label: 'Recruiter status' }
-  }, [profile?.role])
+  }, [categories, section, visibleCategories])
 
   const signIn = async () => {
-    setAuthing(true)
-    setError('')
     try {
-      const { signer, address } = await connectWallet()
-      const nonceResponse = await fetch(`/api/wm-auth-nonce?address=${encodeURIComponent(address)}`, { credentials: 'same-origin' })
-      const nonceData = await nonceResponse.json().catch(() => ({}))
-      if (!nonceResponse.ok || !nonceData?.message) throw new Error(nonceData?.error || 'Failed to request wallet challenge.')
-      const signature = await signer.signMessage(nonceData.message)
-      const verifyResponse = await fetch('/api/wm-auth-verify', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, signature }),
-      })
-      const verifyData = await verifyResponse.json().catch(() => ({}))
-      if (!verifyResponse.ok || !verifyData?.ok) throw new Error(verifyData?.error || 'Wallet sign-in failed.')
+      setAuthing(true)
+      setError('')
+      const result = await connectWallet()
+      if (!result.ok) throw new Error(result.error || 'Wallet connection failed.')
+      setActionMessage('Wallet connected. Mission profile synced.')
       await loadMissions()
       await Promise.all([loadSocialStatus(), loadRecruiterStatus()])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Wallet sign-in failed.')
+      setError(err instanceof Error ? err.message : 'Wallet connection failed.')
     } finally {
       setAuthing(false)
     }
