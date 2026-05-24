@@ -355,7 +355,7 @@
 .war-primary:disabled,
 .quest-action:disabled,
 .war-modal__close:disabled {
-  cursor: wait;
+  cursor: default;
   opacity: 0.65;
 }
 
