@@ -7,7 +7,7 @@ Standalone War Missions app for `quests.memewar.zone`.
 - `uptokendev/quests` `main` owns the War Missions user and admin surface.
 - Recruiter signup lives in the main MemeWarzone Command Center flow.
 - War Missions keeps the recruiter CTA, status-check, milestone visibility, and admin review surfaces.
-- `uptokendev/MemeBattles` `dev` can proxy or support War Missions APIs, but the Quests app is the canonical frontend surface.
+- `uptokendev/MemeBattles` `dev` owns the runtime War Missions API gateway and backend integrations.
 
 ## Netlify settings
 
@@ -16,26 +16,15 @@ Use the existing repository, but create a separate Netlify site for the quest su
 - Base directory: `quests`
 - Build command: `npm run build`
 - Publish directory: `dist`
-- Functions directory: `netlify/functions`
-
-The app keeps all quest and admin pages on the same subdomain.
+- No Netlify Functions. The site stays static-only and `netlify.toml` proxies `/api/*` to the MemeWarzone Railway API gateway.
 
 ## Required environment variables
 
-The quests site uses its own Netlify Functions under `quests/netlify/functions`.
+The quests site is a static frontend. Runtime secrets and backend integrations live on the MemeBattles / Railway API side.
 
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `WAR_MISSIONS_AUTH_SECRET`
-- `WAR_MISSIONS_ADMIN_WALLETS`
-- `WM_MAINTENANCE_SECRET`
-- `WM_REQUIRED_X_TAG`
-- `X_BEARER_TOKEN` or `TWITTER_BEARER_TOKEN`
-- `TELEGRAM_BOT_TOKEN`
-- `DISCORD_BOT_TOKEN`
-- `WM_TELEGRAM_GROUP_ID`
-- `WM_DISCORD_GUILD_ID`
-- `WM_DISCORD_CHANNEL_IDS`
+Optional frontend override:
+
+- `VITE_COMMAND_CENTER_RECRUITER_URL`
 
 Wallet connect uses the same injected-wallet flow as the MemeBattles frontend: MetaMask/Rabby, Binance Wallet, or another BSC-compatible injected EVM wallet. It does not require a WalletConnect/Reown project ID.
 
@@ -65,6 +54,8 @@ For now, copy them from the current landing app public folder so the visual styl
 - `/admin/missions/*`
 
 ## Active API endpoints
+
+These routes are served by the MemeBattles `dev` API gateway and reached from quests through the existing `/api/*` proxy.
 
 - `/api/wm-auth-nonce`
 - `/api/wm-auth-verify`
