@@ -178,9 +178,23 @@ type SocialStatusResponse = {
   ok?: boolean
   authenticated?: boolean
   xOAuthConfigured?: boolean
+  telegramConfigured?: boolean
   telegramInviteUrl?: string | null
+  discordConfigured?: boolean
   discordInviteUrl?: string | null
   accounts?: Array<{ provider: string; username: string; providerUserId: string; lastVerifiedAt: string | null }>
+}
+
+type TelegramLinkStartResponse = {
+  ok?: boolean
+  error?: string
+  telegramUrl?: string
+}
+
+type DiscordOAuthStartResponse = {
+  ok?: boolean
+  error?: string
+  authorizeUrl?: string
 }
 
 type XOAuthStartResponse = {
@@ -691,9 +705,20 @@ export default function WarMissionsPage() {
     try {
       setAuthing(true)
       setError('')
-      const result = await connectWallet()
-      if (!result.ok) throw new Error(result.error || 'Wallet connection failed.')
-      setActionMessage('Wallet connected. Mission profile synced.')
+      const { signer, address } = await connectWallet()
+      const nonceResponse = await fetch(`/api/wm-auth-nonce?address=${encodeURIComponent(address)}`, { credentials: 'same-origin' })
+      const nonceData = await nonceResponse.json().catch(() => ({}))
+      if (!nonceResponse.ok || !nonceData?.message) throw new Error(nonceData?.error || 'Failed to request wallet challenge.')
+      const signature = await signer.signMessage(nonceData.message)
+      const verifyResponse = await fetch('/api/wm-auth-verify', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, signature }),
+      })
+      const verifyData = await verifyResponse.json().catch(() => ({}))
+      if (!verifyResponse.ok || !verifyData?.ok) throw new Error(verifyData?.error || 'Wallet sign-in failed.')
+      setActionMessage('Wallet connected. Oath synced and mission profile refreshed.')
       await loadMissions()
       await Promise.all([loadSocialStatus(), loadRecruiterStatus()])
     } catch (err) {
@@ -734,6 +759,38 @@ export default function WarMissionsPage() {
     const data = await response.json().catch(() => ({}))
     if (!response.ok || !data?.ok) throw new Error(data?.error || `${provider} membership check failed.`)
     return data
+  }
+
+  const startTelegramLink = async () => {
+    const response = await fetch('/api/wm-telegram-link-start', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const data = (await response.json().catch(() => ({}))) as TelegramLinkStartResponse
+    if (!response.ok || !data?.ok || !data.telegramUrl) throw new Error(data?.error || 'Telegram connection could not start.')
+    window.open(data.telegramUrl, '_blank', 'noopener,noreferrer')
+  }
+
+  const startDiscordOAuth = async () => {
+    const response = await fetch('/api/wm-discord-oauth-start', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const data = (await response.json().catch(() => ({}))) as DiscordOAuthStartResponse
+    if (!response.ok || !data?.ok || !data.authorizeUrl) throw new Error(data?.error || 'Discord connection could not start.')
+    window.location.href = data.authorizeUrl
+  }
+
+  const waitForLinkedSocialAccount = async (provider: 'telegram' | 'discord', attempts = 48, delayMs = 2500) => {
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      if (attempt > 1) await sleep(delayMs)
+      const currentStatus = await getSocialStatus()
+      const account = currentStatus.accounts?.find((item) => item.provider === provider)
+      if (account) return currentStatus
+    }
+    return null
   }
 
   const startXOAuth = async () => {
@@ -790,20 +847,49 @@ export default function WarMissionsPage() {
     const provider = quest.verificationType === 'telegram_join' ? 'telegram' : 'discord'
     const label = provider === 'telegram' ? 'Telegram' : 'Discord'
     const destination = provider === 'telegram' ? 'group' : 'server'
-    const social = await getSocialStatus()
-    const account = social.accounts?.find((item) => item.provider === provider)
-    const inviteUrl = provider === 'telegram' ? social.telegramInviteUrl : social.discordInviteUrl
+    let social = await getSocialStatus()
+    let account = social.accounts?.find((item) => item.provider === provider)
 
     if (!account) {
-      throw new Error(`${label} identity is not connected yet. Connect ${label} once in Identity Status, then return here so the bot can verify the ${destination} membership quest.`)
+      if (provider === 'telegram') {
+        if (social.telegramConfigured === false) throw new Error('Telegram bot auth is not configured on this deploy yet.')
+        setActionMessage('Opening Telegram bot. Press Start there and we will keep watching for the account link here.')
+        await startTelegramLink()
+        const linkedStatus = await waitForLinkedSocialAccount('telegram')
+        if (!linkedStatus) throw new Error('Telegram account was not linked yet. Press Start in the bot, then run the quest again.')
+        social = linkedStatus
+        account = social.accounts?.find((item) => item.provider === 'telegram')
+      } else {
+        if (social.discordConfigured === false) throw new Error('Discord OAuth is not configured on this deploy yet.')
+        setActionMessage('Opening Discord authorization. Approve the connection, then return here and the join check will be ready.')
+        await startDiscordOAuth()
+        return
+      }
     }
 
-    if (inviteUrl) window.open(inviteUrl, '_blank', 'noopener,noreferrer')
-    setActionMessage(`Opened the official ${label} ${destination}. Join it there while we keep checking membership automatically.`)
+    if (!account) {
+      throw new Error(`${label} identity is not connected yet. Finish the ${label} link first, then rerun the membership check.`)
+    }
 
-    let lastMessage = ''
-    for (let attempt = 1; attempt <= 12; attempt += 1) {
-      if (attempt > 1) await sleep(attempt === 2 ? 3000 : 5000)
+    const initialCheck = await checkCommunityMembership(provider, quest.slug)
+    const initialMessage = initialCheck.membership?.error || initialCheck.result?.reason || ''
+    if (initialCheck.membership?.ok || initialCheck.status === 'verified' || initialCheck.result?.status === 'verified' || initialCheck.result?.status === 'already_verified') {
+      setActionMessage(`${label} ${destination} membership confirmed. Quest verified and XP awarded.`)
+      await loadMissions()
+      return
+    }
+
+    const inviteUrl = provider === 'telegram' ? social.telegramInviteUrl : social.discordInviteUrl
+    if (inviteUrl) {
+      window.open(inviteUrl, '_blank', 'noopener,noreferrer')
+      setActionMessage(`Opened the official ${label} ${destination}. If you are already inside, stay there a moment while we re-check membership.`)
+    } else {
+      setActionMessage(`Checking ${label} ${destination} membership again now.`)
+    }
+
+    let lastMessage = initialMessage
+    for (let attempt = 2; attempt <= 12; attempt += 1) {
+      await sleep(attempt === 2 ? 3000 : 5000)
       const data = await checkCommunityMembership(provider, quest.slug)
       lastMessage = data.membership?.error || data.result?.reason || ''
 
@@ -816,7 +902,7 @@ export default function WarMissionsPage() {
       setActionMessage(`Waiting for ${label} ${destination} membership confirmation... check ${attempt}/12.`)
     }
 
-    setActionMessage(`${label} membership is not confirmed yet${lastMessage ? `: ${lastMessage}` : ''}. If you just joined, the bot will also keep checking when you refresh the quest page.`)
+    setActionMessage(`${label} membership is not confirmed yet${lastMessage ? `: ${lastMessage}` : ''}. If you just joined, refresh the quest page and run the check again.`)
   }
 
   const linkXForQuest = async () => {
