@@ -48,7 +48,10 @@ export const handler = async (event: any) => {
     const cooldownSeconds = Number(template.cooldown_seconds || 0)
     if (recentFailed[0] && !recentFailed[0].passed && cooldownSeconds > 0) {
       const nextAttemptAt = new Date(recentFailed[0].created_at).getTime() + cooldownSeconds * 1000
-      if (Date.now() < nextAttemptAt) return json(429, { error: 'Quiz retry cooldown is still active.', nextAttemptAt: new Date(nextAttemptAt).toISOString() })
+      if (Date.now() < nextAttemptAt) {
+        const cooldownUntil = new Date(nextAttemptAt).toISOString()
+        return json(429, { error: 'Quiz retry cooldown is still active.', cooldownUntil, nextAttemptAt: cooldownUntil })
+      }
     }
 
     const questionIds = Object.keys(submittedAnswers)
@@ -57,8 +60,8 @@ export const handler = async (event: any) => {
     const rows = await supabaseGet<QuizQuestionRow[]>(`/rest/v1/wm_quiz_questions?select=id,correct_answer_key&id=in.(${questionIds.join(',')})&quest_template_id=eq.${template.id}&active=eq.true`)
     const correctById = new Map(rows.map((row) => [row.id, row.correct_answer_key]))
     const score = questionIds.reduce((total, questionId) => total + (correctById.get(questionId) === submittedAnswers[questionId] ? 1 : 0), 0)
-    const passScore = Number(template.metadata?.pass_score || 3)
-    const passed = score >= passScore
+    const passingScore = Number(template.metadata?.pass_score || 3)
+    const passed = score >= passingScore
 
     await supabasePost('/rest/v1/wm_quiz_attempts', {
       user_id: user.id,
@@ -69,11 +72,21 @@ export const handler = async (event: any) => {
     })
 
     if (passed) {
-      await awardQuestForUser(user.id, questSlug, 'docs_quiz_passed', { score, pass_score: passScore, question_count: questionIds.length })
+      await awardQuestForUser(user.id, questSlug, 'docs_quiz_passed', { score, pass_score: passingScore, question_count: rows.length })
     }
 
     const profile = await buildWarProfile(user)
-    return json(200, { ok: true, passed, score, passScore, profile })
+    return json(200, {
+      ok: true,
+      passed,
+      score,
+      totalQuestions: rows.length,
+      questionCount: rows.length,
+      passingScore,
+      passScore: passingScore,
+      cooldownUntil: null,
+      profile,
+    })
   } catch (error) {
     return json(500, { error: error instanceof Error ? error.message : 'Unexpected server error.' })
   }
