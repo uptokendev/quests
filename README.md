@@ -2,6 +2,13 @@
 
 Standalone War Missions app for `quests.memewar.zone`.
 
+## Current ownership
+
+- `uptokendev/quests` `main` owns the War Missions user and admin surface.
+- Recruiter signup lives in the main MemeWarzone Command Center flow.
+- War Missions keeps the recruiter CTA, status-check, milestone visibility, and admin review surfaces.
+- `uptokendev/MemeBattles` `dev` can proxy or support War Missions APIs, but the Quests app is the canonical frontend surface.
+
 ## Netlify settings
 
 Use the existing repository, but create a separate Netlify site for the quest subdomain.
@@ -57,7 +64,7 @@ For now, copy them from the current landing app public folder so the visual styl
 - `/admin/missions`
 - `/admin/missions/*`
 
-## API endpoints started
+## Active API endpoints
 
 - `/api/wm-auth-nonce`
 - `/api/wm-auth-verify`
@@ -65,9 +72,13 @@ For now, copy them from the current landing app public folder so the visual styl
 - `/api/wm-quests-list`
 - `/api/wm-quests-submit`
 - `/api/wm-social-link`
+- `/api/wm-social-status`
 - `/api/wm-quiz-get`
+- `/api/wm-quiz-load`
 - `/api/wm-quiz-submit`
 - `/api/wm-recruiter-apply`
+- `/api/wm-recruiter-status`
+- `/api/wm-recruiter-status-check`
 - `/api/wm-referral-track`
 - `/api/wm-leaderboard-current`
 - `/api/wm-prizes-public`
@@ -82,3 +93,10 @@ For now, copy them from the current landing app public folder so the visual styl
 - `/api/wm-admin-leaderboard-snapshot`
 - `/api/wm-admin-prizes`
 - `/api/wm-daily-rollover`
+
+## Recruiter flow
+
+- Open recruiter signup in Command Center.
+- Return to War Missions and run recruiter status-check.
+- Approved recruiter status unlocks recruiter XP and reinforcement milestones inside Quests.
+- Referral and squad management remain Command Center concerns.
