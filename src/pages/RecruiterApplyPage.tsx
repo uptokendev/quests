@@ -1,117 +1,71 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { connectWallet } from '../lib/wallet'
 import './WarMissionsPage.css'
 
-type QuestStatus =
-  | 'ready'
-  | 'pending'
-  | 'review'
-  | 'locked'
-  | 'verified'
-  | 'started'
-  | 'rejected'
-  | 'revoked'
-  | 'expired'
+type SignupRole = 'creator' | 'trader' | 'both'
 
-type RecruiterQuestState = 'not_started' | 'pending_review' | 'approved' | 'rejected'
+const ROLE_KEY = 'mwz:squad:signup_role'
+const RECRUITER_CODE_KEY = 'mwz:recruiter_code'
+const ROLE_OPTIONS: Array<{ value: SignupRole; title: string; text: string }> = [
+  { value: 'creator', title: 'Creator', text: 'I launch or manage projects' },
+  { value: 'trader', title: 'Trader', text: 'I trade and participate' },
+  { value: 'both', title: 'Both', text: 'I do both' },
+]
 
-type RecruiterStatusPayload = {
-  status: RecruiterQuestState
-  reason: string | null
-  source: string
-  checkedAt: string
-}
-
-type RecruiterStatusResponse = {
-  ok?: boolean
-  error?: string
-  recruiterStatus?: RecruiterStatusPayload
-}
-
-type WarProfile = {
-  id: string
-  walletAddress: string
-  displayName: string | null
-  role: 'user' | 'recruiter' | 'admin'
-  xpTotal: number
-}
-
-type ApiQuest = {
-  slug: string
-  title: string
-  description: string | null
-  xpReward: number
-  verificationType: string
-  status: QuestStatus | null
-}
-
-type ApiCategory = {
-  slug: string
-  quests: ApiQuest[]
-}
-
-type WarMissionsResponse = {
-  ok?: boolean
-  error?: string
-  profile?: WarProfile | null
-  categories?: ApiCategory[]
-}
-
-const DEFAULT_COMMAND_CENTER_URL = 'https://memewarzonefrontend-production.up.railway.app/command/recruiter'
-const commandCenterUrl = String(import.meta.env.VITE_COMMAND_CENTER_RECRUITER_URL || DEFAULT_COMMAND_CENTER_URL).trim()
-
-function shorten(value: string) {
+function shortWallet(value: string) {
   return value ? `${value.slice(0, 6)}...${value.slice(-4)}` : ''
 }
 
-function xpLabel(value: number) {
-  return `${Number(value || 0).toLocaleString()} XP`
+function normalizeCode(value: string | null): string {
+  return String(value || '').trim()
 }
 
 export default function RecruiterApplyPage() {
-  const [profile, setProfile] = useState<WarProfile | null>(null)
-  const [reinforcementQuests, setReinforcementQuests] = useState<ApiQuest[]>([])
-  const [recruiterStatus, setRecruiterStatus] = useState<RecruiterStatusPayload | null>(null)
+  const [params] = useSearchParams()
+  const [role, setRole] = useState<SignupRole>('creator')
+  const [wallet, setWallet] = useState('')
   const [authing, setAuthing] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
 
-  const loadRecruiterStatus = async () => {
-    const response = await fetch('/api/wm-recruiter-status', { credentials: 'same-origin', cache: 'no-store' })
-    const data = (await response.json().catch(() => ({}))) as RecruiterStatusResponse
-    if (!response.ok || !data?.ok || !data.recruiterStatus) throw new Error(data.error || 'Recruiter status is not available yet.')
-    setRecruiterStatus(data.recruiterStatus)
-  }
-
-  const loadState = async () => {
-    setError('')
-    try {
-      const response = await fetch('/api/wm-quests-list', { credentials: 'same-origin', cache: 'no-store' })
-      const data = (await response.json().catch(() => ({}))) as WarMissionsResponse
-      if (!response.ok || !data?.ok) throw new Error(data.error || 'Recruiter data is not available yet.')
-      setProfile(data.profile || null)
-      const reinforcements = data.categories?.find((category) => category.slug === 'reinforcements')
-      setReinforcementQuests(reinforcements?.quests || [])
-      if (data.profile) await loadRecruiterStatus()
-      else setRecruiterStatus(null)
-    } catch (err) {
-      setProfile(null)
-      setReinforcementQuests([])
-      setRecruiterStatus(null)
-      setError(err instanceof Error ? err.message : 'Recruiter data is not available yet.')
-    }
-  }
+  const recruiterCode = useMemo(() => {
+    const fromUrl = normalizeCode(params.get('recruiterCode') || params.get('code') || params.get('ref'))
+    if (fromUrl) return fromUrl
+    if (typeof window === 'undefined') return ''
+    return normalizeCode(window.localStorage.getItem(RECRUITER_CODE_KEY))
+  }, [params])
 
   useEffect(() => {
-    void loadState()
-  }, [])
+    if (typeof window === 'undefined') return
+    const storedRole = window.localStorage.getItem(ROLE_KEY)
+    if (storedRole === 'creator' || storedRole === 'trader' || storedRole === 'both') setRole(storedRole)
+    if (recruiterCode) window.localStorage.setItem(RECRUITER_CODE_KEY, recruiterCode)
+  }, [recruiterCode])
 
-  const alreadyApproved = profile?.role === 'recruiter' || profile?.role === 'admin' || recruiterStatus?.status === 'approved'
+  const chooseRole = (nextRole: SignupRole) => {
+    setRole(nextRole)
+    window.localStorage.setItem(ROLE_KEY, nextRole)
+  }
+
+  const syncAttribution = async (address: string) => {
+    if (!recruiterCode) return
+    const response = await fetch('/api/attribution/wallet-connect', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet: address, recruiterCode, role }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || data?.ok === false) throw new Error(data?.error || 'Referral attribution failed.')
+  }
 
   const signIn = async () => {
     setAuthing(true)
     setError('')
+    setNotice('')
     try {
+      window.localStorage.setItem(ROLE_KEY, role)
       const { signer, address } = await connectWallet()
       const nonceResponse = await fetch(`/api/wm-auth-nonce?address=${encodeURIComponent(address)}`, { credentials: 'same-origin' })
       const nonceData = await nonceResponse.json().catch(() => ({}))
@@ -121,11 +75,13 @@ export default function RecruiterApplyPage() {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, signature }),
+        body: JSON.stringify({ address, signature, role }),
       })
       const verifyData = await verifyResponse.json().catch(() => ({}))
       if (!verifyResponse.ok || !verifyData?.ok) throw new Error(verifyData?.error || 'Wallet sign-in failed.')
-      await loadState()
+      await syncAttribution(address)
+      setWallet(address)
+      setNotice(recruiterCode ? 'Signup role saved and recruiter attribution synced.' : 'Signup role saved. Join from a recruiter link to attach a squad.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Wallet sign-in failed.')
     } finally {
@@ -133,105 +89,27 @@ export default function RecruiterApplyPage() {
     }
   }
 
-  const statusTitle = alreadyApproved
-    ? 'Approved recruiter'
-    : recruiterStatus?.status === 'pending_review'
-      ? 'Application in review'
-      : recruiterStatus?.status === 'rejected'
-        ? 'Needs update'
-        : 'Command Center required'
-
   return (
     <div className="war-missions-page">
       <div className="war-missions-bg" aria-hidden="true" />
       <div className="war-missions-overlay" aria-hidden="true" />
       <header className="war-missions-top">
         <Link to="/" className="war-missions-brand" aria-label="MemeWarzone War Missions home"><img src="/logo.png" alt="MemeWarzone" /></Link>
-        <nav className="war-missions-nav" aria-label="Recruiter navigation">
-          <Link to="/missions">Missions</Link>
-          <Link to="/missions/reinforcements">Reinforcements</Link>
-          <Link to="/recruiter/portal">Recruiter Portal</Link>
-        </nav>
+        <nav className="war-missions-nav" aria-label="Signup navigation"><Link to="/recruiter/portal">Recruiter</Link><Link to="/profile/squad">Squad</Link><Link to="/missions">Missions</Link></nav>
       </header>
-
       <main className="war-missions-shell">
         <section className="war-hero">
           <div className="war-hero-copy">
-            <div className="war-kicker">Operation: Reinforcements</div>
-            <h1>Recruiter Apply</h1>
-            <p>Recruiter signup now happens only in the MemeWarzone Command Center. War Missions is the place to come back, check status, and unlock recruiter XP and milestones once approval lands.</p>
-            <div className="war-hero-actions">
-              <button type="button" className="war-primary" onClick={() => void signIn()} disabled={authing}>
-                {authing ? 'Waiting for signature...' : profile ? 'Wallet connected' : 'Connect wallet'}
-              </button>
-              <a href={commandCenterUrl} target="_blank" rel="noreferrer" className="war-secondary">
-                Open Command Center
-              </a>
-              {alreadyApproved ? <Link to="/profile/squad" className="war-secondary">Open squad view</Link> : null}
-            </div>
-            {error ? <div className="war-alert">{error}</div> : null}
+            <div className="war-kicker">Squad Signup</div>
+            <h1>What are you joining as?</h1>
+            <p>Choose the role that should be stored on your squad membership before connecting your wallet.</p>
+            <div className="war-hero-actions"><button type="button" className="war-primary" onClick={() => void signIn()} disabled={authing}>{authing ? 'Waiting for signature...' : wallet ? `Connected ${shortWallet(wallet)}` : 'Connect wallet'}</button><Link to="/profile/squad" className="war-secondary">Open squad rewards</Link></div>
+            {error ? <div className="war-alert">{error}</div> : null}{notice ? <div className="war-success">{notice}</div> : null}
           </div>
-
-          <aside className="war-status-card">
-            <div className="war-status-card__label">Recruiter status</div>
-            <div className="war-status-card__title">{statusTitle}</div>
-            <p>
-              {profile
-                ? `Wallet ${shorten(profile.walletAddress)} is connected.`
-                : 'Connect your wallet first so recruiter status follows the same War Missions identity.'}
-            </p>
-            <div className="war-checklist">
-              <span className={profile ? 'war-checklist__done' : ''}>Wallet identity</span>
-              <span className={recruiterStatus && recruiterStatus.status !== 'not_started' ? 'war-checklist__done' : ''}>Command Center signup</span>
-              <span className={alreadyApproved ? 'war-checklist__done' : ''}>Approved recruiter</span>
-              <span className={alreadyApproved ? 'war-checklist__done' : ''}>Referral link + roster</span>
-            </div>
-            {recruiterStatus?.reason ? <div className="war-alert">{recruiterStatus.reason}</div> : null}
-          </aside>
+          <aside className="war-status-card"><div className="war-status-card__label">Recruiter link</div><div className="war-status-card__title">{recruiterCode || 'No recruiter linked yet.'}</div><p>{recruiterCode ? 'This code will be sent with your wallet and selected role.' : 'Open this page from a recruiter link to join a squad.'}</p></aside>
         </section>
-
-        <section className="war-two-col">
-          <section className="war-panel">
-            <div className="war-section-head">
-              <div>
-                <div className="war-kicker">Current flow</div>
-                <h2>What happens next</h2>
-              </div>
-              <p>This repo now keeps one recruiter source of truth: Command Center handles intake, and War Missions checks status back in from there.</p>
-            </div>
-            <div className="review-list">
-              <span><strong>1. Connect wallet</strong><em>Use the same wallet as War Missions</em></span>
-              <span><strong>2. Open Command Center</strong><em>Complete signup there instead of inside quests</em></span>
-              <span><strong>3. Wait for approval</strong><em>{recruiterStatus?.status === 'rejected' ? 'Update the application there, then recheck here' : 'Come back here to recheck after review'}</em></span>
-              <span><strong>4. Unlock recruiter quests</strong><em>Approved status unlocks recruiter XP and milestone progress</em></span>
-            </div>
-          </section>
-
-          <section className="war-panel war-panel--tight">
-            <div className="war-section-head">
-              <div>
-                <div className="war-kicker">Quest context</div>
-                <h2>Recruiter milestones</h2>
-              </div>
-              <p>These reinforcement quests remain the progression backbone after your recruiter approval is confirmed inside War Missions.</p>
-            </div>
-            <div className="quest-list">
-              {reinforcementQuests.length > 0 ? reinforcementQuests
-                .filter((quest) => quest.verificationType !== 'recruiter_application_submitted')
-                .map((quest) => (
-                  <div className="quest-row" key={quest.slug}>
-                    <div>
-                      <div className="quest-row__title">{quest.title}</div>
-                      <div className="quest-row__text">{quest.description || 'Recruiter progression milestone.'}</div>
-                    </div>
-                    <div className="quest-row__meta">
-                      <strong>{xpLabel(quest.xpReward)}</strong>
-                      <span className={`quest-status quest-status--${quest.status || 'locked'}`}>{quest.status || 'locked'}</span>
-                    </div>
-                  </div>
-                )) : <div className="leaderboard-empty">Recruiter mission data will appear here after the quest API responds.</div>}
-            </div>
-          </section>
+        <section className="war-stats" aria-label="Signup role choices">
+          {ROLE_OPTIONS.map((option) => <button key={option.value} type="button" className="war-stat" style={{ textAlign: 'left', borderColor: role === option.value ? 'rgba(246, 211, 124, .75)' : undefined }} onClick={() => chooseRole(option.value)}><div className="war-stat__label">{role === option.value ? 'Selected' : 'Role'}</div><div className="war-stat__value">{option.title}</div><div className="war-stat__help">{option.text}</div></button>)}
         </section>
       </main>
     </div>
